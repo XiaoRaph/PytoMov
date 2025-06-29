@@ -83,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const textInput = document.getElementById('textInput');
     const durationInput = document.getElementById('durationInput');
     const fpsInput = document.getElementById('fpsInput');
+    const originalFramesInput = document.getElementById('originalFramesInput'); // New input for original frames
     const fontSizeInput = document.getElementById('fontSizeInput');
     const textColorInput = document.getElementById('textColorInput');
     const fontFamilyInput = document.getElementById('fontFamilyInput'); // New font family input
@@ -148,28 +149,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Applies the selected image filter to the loaded image on the preview canvas.
+     * Applies an image filter to the loaded image on the preview canvas.
+     * @param {string} [forceFilterType=null] - If provided, this filter type will be used instead of the UI selection.
+     *                                        Use 'none' to force drawing the original image.
      */
-    function applyImageFilter() {
+    function applyImageFilter(forceFilterType = null) {
         if (!loadedImage || !previewCanvas || !ctx) {
             return;
         }
 
-        // Always draw the original image first
+        // Always draw the original image first as a base
         ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
         ctx.drawImage(loadedImage, 0, 0, previewCanvas.width, previewCanvas.height);
 
-        const selectedFilter = imageFilterInput.value;
+        const filterToApply = forceFilterType !== null ? forceFilterType : imageFilterInput.value;
 
-        if (selectedFilter === 'none') {
+        if (filterToApply === 'none') {
             // No filter to apply, original image is already drawn
+            if (forceFilterType !== null) console.log("Forcing no filter for this frame.");
             return;
         }
 
         const imageData = ctx.getImageData(0, 0, previewCanvas.width, previewCanvas.height);
         const data = imageData.data;
 
-        if (selectedFilter === 'invert') {
+        if (filterToApply === 'invert') {
             for (let i = 0; i < data.length; i += 4) {
                 data[i]     = 255 - data[i];     // Red
                 data[i + 1] = 255 - data[i + 1]; // Green
@@ -177,24 +181,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Alpha (data[i + 3]) remains unchanged
             }
         }
-        // Future filters can be added here as else if (selectedFilter === '...')
+        // Future filters can be added here as else if (filterToApply === '...')
 
         ctx.putImageData(imageData, 0, 0);
-        console.log(`Applied filter: ${selectedFilter}`);
+        if (forceFilterType !== null) {
+            console.log(`Applied forced filter for frame: ${filterToApply}`);
+        } else {
+            console.log(`Applied UI selected filter: ${filterToApply}`);
+        }
     }
 
     /**
      * Draws the (potentially filtered) image and the overlay text onto the preview canvas.
-     * Called when the image loads or any filter/text/style input changes.
+     * This function is primarily for the live preview.
+     * @param {string} [overrideFilter=null] - Optional. If provided, forces a specific filter for this draw call.
+     *                                         Used by generateVideoWithCanvas to render specific frame states.
      */
-    function drawTextOnCanvas() {
+    function drawTextOnCanvas(overrideFilter = null) {
         if (!loadedImage) {
             return;
         }
         if (!previewCanvas || !ctx) return;
 
-        // Apply the current image filter first
-        applyImageFilter();
+        // Apply the image filter. If overrideFilter is provided, use that. Otherwise, use UI selection.
+        applyImageFilter(overrideFilter);
 
         // Now draw text on top of the (potentially) filtered image
         const text = textInput.value;
@@ -434,25 +444,30 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("[Diag][generateVideoCanvas] Entering Canvas processing try block.");
 
             const totalFrames = Math.floor(durationSec * fpsVal);
-            const frameDelay = 1000 / fpsVal; // delay in ms
-
-            // Ensure the preview canvas is up-to-date with the latest text and image
-            // This is important because drawTextOnCanvas updates the previewCanvas
-            // which we will be using to grab frames.
-            drawTextOnCanvas();
+            const numOriginalFrames = parseInt(originalFramesInput.value, 10) || 0;
+            console.log(`[Diag][generateVideoCanvas] Number of initial original frames: ${numOriginalFrames}`);
 
             const video = new Whammy.Video(fpsVal);
+            const currentlySelectedFilter = imageFilterInput.value; // Cache user's choice for post-original frames
 
             for (let i = 0; i < totalFrames; i++) {
-                // The previewCanvas should already have the static image and text drawn on it.
-                // If text/image were dynamic per frame, we'd redraw here.
-                // For this project, the content is static throughout the video.
+                let filterForThisFrame = currentlySelectedFilter;
+                if (i < numOriginalFrames) {
+                    filterForThisFrame = 'none'; // Force no filter for initial frames
+                }
+
+                // Redraw canvas for this specific frame's state (filter + text)
+                // The drawTextOnCanvas function now handles applying the filter before drawing text.
+                // We pass overrideFilter to ensure the correct filter state for this frame.
+                drawTextOnCanvas(filterForThisFrame);
+
                 video.add(previewCanvas); // Add current state of previewCanvas
-                updateStatus(`Encoding frame ${i + 1}/${totalFrames}`);
-                console.log(`[Diag][generateVideoCanvas] Added frame ${i + 1}/${totalFrames}`);
-                // Whammy doesn't require a delay here, it just collects frames.
-                // If we needed to display the frame being processed, we might await a short delay.
+                updateStatus(`Encoding frame ${i + 1}/${totalFrames} (Filter: ${filterForThisFrame})`);
+                console.log(`[Diag][generateVideoCanvas] Added frame ${i + 1}/${totalFrames}. Filter applied: ${filterForThisFrame}`);
             }
+
+            // After loop, restore preview to user's selected filter for consistency
+            drawTextOnCanvas();
 
             console.log("[Diag][generateVideoCanvas] Compiling WebM video...");
             updateStatus("Compiling WebM video... This might take a moment.");
