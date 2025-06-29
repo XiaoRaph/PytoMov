@@ -57,12 +57,10 @@
         <p>Status: Idle</p>
     </div>
 
-    <a id="downloadLink" style="display:none;" download="output.mp4">Download Video</a>
+    <a id="downloadLink" style="display:none;" download="output.webm">Download Video (WebM)</a>
     <canvas id="previewCanvas" style="display:none;"></canvas> <!-- Hidden canvas for processing -->
 
-    <!-- Load FFmpeg dependencies in correct order -->
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
-    <!-- We use a stable version that is known to work with UMD format -->
+
     <script src="script.js"></script>
 
     <div id="onPageConsoleContainer">
