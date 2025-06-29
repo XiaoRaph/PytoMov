@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to update status messages
     function updateStatus(message) {
-        statusMessages.innerHTML = `<p>${message}</p>`;
+        statusMessages.textContent = message;
         console.log(message);
     }
 
@@ -263,12 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- FFmpeg Integration Removed ---
 
-    // generateBtn.disabled = true; // Button will be enabled by default now
-    // updateStatus("Initializing FFmpeg - Please wait..."); // Not needed
-    // No FFmpeg pre-loading, button is active by default.
-    // If any other initialization is needed in the future, it can go here.
-    updateStatus("Ready to generate video using Canvas API.");
-    generateBtn.disabled = false; // Ensure button is enabled
 
 
     async function generateVideoWithCanvas() { // Renamed from generateVideoWithFFmpeg, content to be replaced
