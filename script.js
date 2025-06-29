@@ -94,7 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const bgColorInput = document.getElementById('bgColorInput');
     const clearBgColorBtn = document.getElementById('clearBgColorBtn');
     const enableBgColorCheckbox = document.getElementById('enableBgColor');
-    const textPositionInput = document.getElementById('textPositionInput'); // New text position dropdown
+    const textPositionInput = document.getElementById('textPositionInput');
+    const imageFilterInput = document.getElementById('imageFilterInput'); // New image filter dropdown
 
     let loadedImage = null; // Holds the currently loaded image object
 
@@ -147,22 +148,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Draws the loaded image and the overlay text onto the preview canvas.
-     * Called when the image loads or any text/style input changes.
+     * Applies the selected image filter to the loaded image on the preview canvas.
+     */
+    function applyImageFilter() {
+        if (!loadedImage || !previewCanvas || !ctx) {
+            return;
+        }
+
+        // Always draw the original image first
+        ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        ctx.drawImage(loadedImage, 0, 0, previewCanvas.width, previewCanvas.height);
+
+        const selectedFilter = imageFilterInput.value;
+
+        if (selectedFilter === 'none') {
+            // No filter to apply, original image is already drawn
+            return;
+        }
+
+        const imageData = ctx.getImageData(0, 0, previewCanvas.width, previewCanvas.height);
+        const data = imageData.data;
+
+        if (selectedFilter === 'invert') {
+            for (let i = 0; i < data.length; i += 4) {
+                data[i]     = 255 - data[i];     // Red
+                data[i + 1] = 255 - data[i + 1]; // Green
+                data[i + 2] = 255 - data[i + 2]; // Blue
+                // Alpha (data[i + 3]) remains unchanged
+            }
+        }
+        // Future filters can be added here as else if (selectedFilter === '...')
+
+        ctx.putImageData(imageData, 0, 0);
+        console.log(`Applied filter: ${selectedFilter}`);
+    }
+
+    /**
+     * Draws the (potentially filtered) image and the overlay text onto the preview canvas.
+     * Called when the image loads or any filter/text/style input changes.
      */
     function drawTextOnCanvas() {
         if (!loadedImage) {
-            // updateStatus("Please upload an image first."); // This can be annoying if called too often, and image load handles initial status
             return;
         }
         if (!previewCanvas || !ctx) return;
 
-        // Clear canvas and redraw image (in case text settings changed)
-        ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-        ctx.drawImage(loadedImage, 0, 0);
+        // Apply the current image filter first
+        applyImageFilter();
 
+        // Now draw text on top of the (potentially) filtered image
         const text = textInput.value;
-        const fontSize = fontSizeInput.value; // e.g., "50px"
+        const fontSize = fontSizeInput.value;
         const fontFamily = fontFamilyInput.value || 'sans-serif'; // Use specified or fallback
         const textColor = textColorInput.value;
         const useBgColor = enableBgColorCheckbox.checked;
@@ -282,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add event listeners to various input fields.
     // When any of these inputs change, redraw the text on the canvas to update the preview.
-    [textInput, fontSizeInput, textColorInput, fontFamilyInput, bgColorInput, enableBgColorCheckbox, textPositionInput].forEach(input => {
+    [textInput, fontSizeInput, textColorInput, fontFamilyInput, bgColorInput, enableBgColorCheckbox, textPositionInput, imageFilterInput].forEach(input => {
         if (input) {
             // Use 'input' event for text fields for immediate feedback, 'change' for color pickers, checkboxes, and select.
             const eventType = (input.type === 'color' || input.type === 'checkbox' || input.tagName === 'SELECT') ? 'change' : 'input';

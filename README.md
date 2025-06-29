@@ -7,12 +7,14 @@ PytoMov is a simple web-based tool that allows you to create a video file from a
 ## Features
 
 *   **Upload Your Image:** Start with any image from your computer.
+*   **Apply Image Filters:** Currently includes "Invert Colors (Negative)". More to come!
 *   **Overlay Custom Text:** Add your desired message to the image.
-*   **Customize Appearance:**
-    *   Set video duration and Frames Per Second (FPS).
+*   **Customize Text Appearance:**
     *   Adjust font size, color, and family.
     *   Choose text position (e.g., top-left, center, bottom-right).
     *   Optionally add a background color to your text for better visibility.
+*   **Video Settings:**
+    *   Set video duration and Frames Per Second (FPS).
 *   **Client-Side Processing:** Video generation happens directly in your web browser.
 *   **Download Video:** Get your output as a `.webm` video file.
 
