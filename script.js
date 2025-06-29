@@ -275,8 +275,8 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("[Diag][loadFFmpeg] FFmpeg not loaded yet. Proceeding with load sequence.");
 
         try {
-            console.log("[Diag][loadFFmpeg] Instantiating FFmpeg.FFmpeg()...");
-            ffmpeg = new FFmpeg.FFmpeg();
+            console.log("[Diag][loadFFmpeg] Instantiating FFmpegWASM.FFmpeg()...");
+            ffmpeg = new FFmpegWASM.FFmpeg();
             console.log("[Diag][loadFFmpeg] FFmpeg instance created.");
 
             ffmpeg.on('log', ({ type, message }) => {
