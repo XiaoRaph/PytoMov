@@ -295,8 +295,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             console.log("[Diag][loadFFmpeg] Event listeners for log and progress attached.");
 
-            console.log("[Diag][loadFFmpeg] Calling ffmpeg.load()...");
-            await ffmpeg.load();
+            const coreVersion = "0.12.6"; // As per documentation for ffmpeg.wasm v0.12.x
+            const baseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/umd`;
+            console.log(`[Diag][loadFFmpeg] Base URL for core assets: ${baseURL}`);
+
+            console.log("[Diag][loadFFmpeg] Calling ffmpeg.load() with explicit core/wasm URLs using toBlobURL...");
+            await ffmpeg.load({
+                coreURL: await FFmpegUtil.toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                wasmURL: await FFmpegUtil.toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+                // Not including workerURL for now to stick to single-thread, to avoid SharedArrayBuffer issues on GitHub Pages
+            });
             console.log("[Diag][loadFFmpeg] ffmpeg.load() completed.");
 
             ffmpegLoaded = true;
