@@ -270,24 +270,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // For now, if generateVideoWithFFmpeg needs fetchFile, it has to be FFmpegUtil.fetchFile
 
     async function loadFFmpeg() {
-        console.log("[Diag][loadFFmpeg] Attempting to load FFmpeg using createFFmpeg approach...");
+        console.log("[Diag][loadFFmpeg] Attempting to load FFmpeg...");
         if (ffmpegLoaded) {
             console.log("[Diag][loadFFmpeg] FFmpeg already loaded. Returning instance.");
             return ffmpeg;
         }
-        updateStatus("Initializing FFmpeg with createFFmpeg - Please wait...");
-        console.log("[Diag][loadFFmpeg] FFmpeg not loaded yet. Proceeding with createFFmpeg sequence.");
+        updateStatus("Initializing FFmpeg - Please wait...");
+        console.log("[Diag][loadFFmpeg] FFmpeg not loaded yet. Proceeding with load sequence.");
 
         try {
-            // This is based on the user's suggestion.
-            // IMPORTANT: FFmpegWASM.createFFmpeg may not exist with the current @ffmpeg/ffmpeg@0.12.15 UMD script.
-            // This will likely throw an error if FFmpegWASM.createFFmpeg is not a function.
-            if (typeof FFmpegWASM.createFFmpeg !== 'function') {
-                const errorMsg = "FFmpegWASM.createFFmpeg is not a function. This suggests the loaded @ffmpeg/ffmpeg UMD script (v0.12.15) does not expose createFFmpeg. User's suggested method might be for a different version or import type (ESM).";
-                console.error(`[Diag][loadFFmpeg] ${errorMsg}`);
-                updateStatus(`Error: ${errorMsg}`);
-                throw new Error(errorMsg);
-            }
+            console.log("[Diag][loadFFmpeg] Instantiating FFmpegWASM.FFmpeg()...");
+            ffmpeg = new FFmpegWASM.FFmpeg();
 
             console.log("[Diag][loadFFmpeg] Instantiating with FFmpegWASM.createFFmpeg()...");
             const corePath = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.4/dist/umd/ffmpeg-core.js';
