@@ -265,26 +265,51 @@ document.addEventListener('DOMContentLoaded', () => {
     let ffmpeg;
     let ffmpegLoaded = false;
 
+    // Assuming fetchFile will be available globally via FFmpegUtil from @ffmpeg/util script
+    // const { fetchFile } = FFmpegUtil; // This would be ideal if FFmpegUtil exposes it directly like this.
+    // For now, if generateVideoWithFFmpeg needs fetchFile, it has to be FFmpegUtil.fetchFile
+
     async function loadFFmpeg() {
-        console.log("[Diag][loadFFmpeg] Attempting to load FFmpeg...");
+        console.log("[Diag][loadFFmpeg] Attempting to load FFmpeg using createFFmpeg approach...");
         if (ffmpegLoaded) {
             console.log("[Diag][loadFFmpeg] FFmpeg already loaded. Returning instance.");
             return ffmpeg;
         }
-        updateStatus("Loading FFmpeg-core. This might take a moment...");
-        console.log("[Diag][loadFFmpeg] FFmpeg not loaded yet. Proceeding with load sequence.");
+        updateStatus("Initializing FFmpeg with createFFmpeg - Please wait...");
+        console.log("[Diag][loadFFmpeg] FFmpeg not loaded yet. Proceeding with createFFmpeg sequence.");
 
         try {
-            console.log("[Diag][loadFFmpeg] Instantiating FFmpegWASM.FFmpeg()...");
-            ffmpeg = new FFmpegWASM.FFmpeg();
-            console.log("[Diag][loadFFmpeg] FFmpeg instance created.");
+            // This is based on the user's suggestion.
+            // IMPORTANT: FFmpegWASM.createFFmpeg may not exist with the current @ffmpeg/ffmpeg@0.12.15 UMD script.
+            // This will likely throw an error if FFmpegWASM.createFFmpeg is not a function.
+            if (typeof FFmpegWASM.createFFmpeg !== 'function') {
+                const errorMsg = "FFmpegWASM.createFFmpeg is not a function. This suggests the loaded @ffmpeg/ffmpeg UMD script (v0.12.15) does not expose createFFmpeg. User's suggested method might be for a different version or import type (ESM).";
+                console.error(`[Diag][loadFFmpeg] ${errorMsg}`);
+                updateStatus(`Error: ${errorMsg}`);
+                throw new Error(errorMsg);
+            }
 
-            ffmpeg.on('log', ({ type, message }) => {
-                // console.log(`[Diag][FFmpeg Internal Log] (${type}): ${message}`); // Potentially too verbose
-                if (type === 'fferr' || type === 'info') {
-                     console.log(`[Diag][FFmpeg Internal Log] (${type}): ${message.substring(0,200)}...`);
-                    updateStatus(`FFmpeg: ${message.substring(0,150)}...`);
-                }
+            console.log("[Diag][loadFFmpeg] Instantiating with FFmpegWASM.createFFmpeg()...");
+            const corePath = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.4/dist/umd/ffmpeg-core.js';
+            console.log(`[Diag][loadFFmpeg] Using corePath: ${corePath}`);
+
+            ffmpeg = FFmpegWASM.createFFmpeg({
+                corePath: corePath,
+                log: true, // Enable logging as per user suggestion
+            });
+            console.log("[Diag][loadFFmpeg] FFmpeg instance presumably created via createFFmpeg.");
+
+            // createFFmpeg usually requires an explicit load call afterwards.
+            console.log("[Diag][loadFFmpeg] Calling ffmpeg.load()...");
+            await ffmpeg.load();
+            console.log("[Diag][loadFFmpeg] ffmpeg.load() completed.");
+
+            // Event listeners might need to be attached differently if createFFmpeg handles them,
+            // but typically they are attached to the instance.
+            // Re-attaching or ensuring they are active if log:true doesn't cover progress.
+            ffmpeg.on('log', ({ type, message }) => { // type is not always present in log events from createFFmpeg's log:true
+                console.log(`[Diag][FFmpeg Internal Log]: ${message.substring(0,200)}...`);
+                updateStatus(`FFmpeg: ${message.substring(0,150)}...`);
             });
             ffmpeg.on('progress', ({ progress, time }) => {
                 const progressPercent = Math.round(progress * 100);
@@ -293,32 +318,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateStatus(`Encoding: ${progressPercent}% (frame time: ${time / 1000000}s)`);
                 }
             });
-            console.log("[Diag][loadFFmpeg] Event listeners for log and progress attached.");
+            console.log("[Diag][loadFFmpeg] Event listeners for log and progress (re-)attached.");
 
-            const coreVersion = "0.12.6"; // As per documentation for ffmpeg.wasm v0.12.x
-            const baseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/umd`;
-            console.log(`[Diag][loadFFmpeg] Base URL for core assets: ${baseURL}`);
-
-            console.log("[Diag][loadFFmpeg] Calling ffmpeg.load() with explicit core/wasm URLs using toBlobURL...");
-            await ffmpeg.load({
-                coreURL: await FFmpegUtil.toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                wasmURL: await FFmpegUtil.toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
-                // Not including workerURL for now to stick to single-thread, to avoid SharedArrayBuffer issues on GitHub Pages
-            });
-            console.log("[Diag][loadFFmpeg] ffmpeg.load() completed.");
 
             ffmpegLoaded = true;
             console.log("[Diag][loadFFmpeg] ffmpegLoaded set to true.");
-            updateStatus("FFmpeg loaded successfully.");
+            updateStatus("FFmpeg loaded successfully via createFFmpeg.");
             return ffmpeg;
         } catch (error) {
-            console.error("[Diag][loadFFmpeg] Error during FFmpeg loading:", error);
-            updateStatus(`Error loading FFmpeg: ${error}. Check console for details.`);
+            console.error("[Diag][loadFFmpeg] Error during FFmpeg loading (createFFmpeg path):", error);
+            updateStatus(`Error loading FFmpeg (createFFmpeg): ${error}. Check console.`);
             ffmpegLoaded = false;
-            console.log("[Diag][loadFFmpeg] ffmpegLoaded set to false due to error.");
+            console.log("[Diag][loadFFmpeg] ffmpegLoaded set to false due to error (createFFmpeg path).");
             throw error;
         } finally {
-            console.log(`[Diag][loadFFmpeg] Exiting loadFFmpeg function. ffmpegLoaded: ${ffmpegLoaded}`);
+            console.log(`[Diag][loadFFmpeg] Exiting loadFFmpeg function (createFFmpeg path). ffmpegLoaded: ${ffmpegLoaded}`);
         }
     }
 
