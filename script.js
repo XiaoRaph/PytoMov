@@ -376,18 +376,19 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStatus("Image written to FS.");
 
             // 3. Construct and run FFmpeg command
-            // Command for creating a video from a single image, looping it, and setting duration/fps.
+            // Command for creating a video from a single image, ensuring correct frame duplication.
             // The text is already on the image via canvas.
+            // By setting -r for the input, we tell FFmpeg to treat the single image as a sequence of frames at that rate.
             const command = [
-                '-framerate', `${fpsVal}`,      // Input FPS (how FFmpeg interprets -loop 1)
-                '-loop', '1',                 // Loop the input image
+                '-r', `${fpsVal}`,            // Set the input frame rate for the image
                 '-i', inputImageName,         // Input image file
-                '-vf', `fps=${fpsVal},format=yuv420p`, // Ensure consistent FPS and yuv420p for MP4 compatibility
-                '-t', `${durationSec}`,       // Duration of the output video
+                '-vf', `format=yuv420p`,      // Ensure yuv420p for MP4 compatibility (fps filter removed as input rate handles it)
                 '-c:v', 'libx264',            // Video codec
-                '-preset', 'ultrafast',       // Encoding speed: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
+                '-preset', 'ultrafast',       // Encoding speed
                 '-tune', 'stillimage',        // Optimize for still images
-                //'-movflags', '+faststart',   // Good for web streaming, but might not be strictly needed
+                '-t', `${durationSec}`,       // Duration of the output video
+                // '-loop 1' is removed as -r on input handles the "looping" or frame duplication effectively.
+                // The `fps=${fpsVal}` in vf is also removed because the input stream is now correctly rated.
                 outputVideoName
             ];
 
