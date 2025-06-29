@@ -96,7 +96,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearBgColorBtn = document.getElementById('clearBgColorBtn');
     const enableBgColorCheckbox = document.getElementById('enableBgColor');
     const textPositionInput = document.getElementById('textPositionInput');
-    const imageFilterInput = document.getElementById('imageFilterInput'); // New image filter dropdown
+    const imageFilterInput = document.getElementById('imageFilterInput');
+
+    const previewArea = document.getElementById('previewArea');
+    const originalPreviewCanvas = document.getElementById('originalPreviewCanvas');
+    const originalCtx = originalPreviewCanvas.getContext('2d');
 
     let loadedImage = null; // Holds the currently loaded image object
 
@@ -110,22 +114,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadedImage = new Image();
                     // Event handler for when the image data has been loaded
                     loadedImage.onload = () => {
-                        // Set canvas dimensions to match the loaded image
+                        // Set dimensions for both canvases
+                        originalPreviewCanvas.width = loadedImage.width;
+                        originalPreviewCanvas.height = loadedImage.height;
                         previewCanvas.width = loadedImage.width;
                         previewCanvas.height = loadedImage.height;
-                        // Draw the image onto the canvas
-                        ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height); // Clear previous content
-                        ctx.drawImage(loadedImage, 0, 0);
-                        previewCanvas.style.display = 'block'; // Make canvas visible
+
+                        // Draw the original image onto the originalPreviewCanvas
+                        originalCtx.clearRect(0, 0, originalPreviewCanvas.width, originalPreviewCanvas.height);
+                        originalCtx.drawImage(loadedImage, 0, 0);
+
+                        // Show the preview area
+                        previewArea.style.display = 'flex'; // Assuming flex is used for layout
+
                         updateStatus(`Image "${file.name}" loaded.`);
-                        // Update the canvas with text overlay now that the image is loaded
+                        // Update the main preview canvas (with filters/text)
                         drawTextOnCanvas();
                     };
                     // Event handler for errors during image loading
                     loadedImage.onerror = () => {
                         updateStatus(`Error loading image: ${file.name}`);
                         loadedImage = null;
-                        previewCanvas.style.display = 'none';
+                        previewArea.style.display = 'none'; // Hide both canvases
                     };
                     loadedImage.src = e.target.result; // Start loading the image data
                 };
@@ -133,7 +143,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 // No file selected or selection cleared
                 loadedImage = null;
-                previewCanvas.style.display = 'none';
+                previewArea.style.display = 'none'; // Hide both canvases
+                originalCtx.clearRect(0, 0, originalPreviewCanvas.width, originalPreviewCanvas.height);
+                ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
                 updateStatus("Image selection cleared.");
             }
         });

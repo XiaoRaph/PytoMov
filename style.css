@@ -100,13 +100,44 @@ button:hover {
     background-color: #27ae60;
 }
 
-/* Hidden by default, shown via JS if needed for preview */
-#previewCanvas {
-    display: block; /* Changed from none to block for layout testing, JS will control final visibility */
-    max-width: 100%;
-    margin-top: 10px;
-    border: 1px solid #ccc;
+/* Styles for the dual canvas preview area */
+#previewArea {
+    display: flex; /* Uses flexbox for layout */
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    justify-content: space-around; /* Distribute space */
+    align-items: flex-start; /* Align items to the top */
+    padding: 10px;
+    background-color: #e9e9e9; /* Slightly different background for the area */
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
+
+.canvas-container {
+    flex: 1; /* Allow containers to grow */
+    min-width: 300px; /* Minimum width before wrapping */
+    margin: 10px;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    text-align: center; /* Center the heading */
+}
+
+.canvas-container h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+#originalPreviewCanvas,
+#previewCanvas {
+    display: block;
+    max-width: 100%; /* Ensure canvas is responsive within its container */
+    margin: 0 auto 10px auto; /* Center canvas and add some bottom margin */
+    border: 1px solid #ccc;
+    background-color: #fff; /* Explicit white background for canvases */
+}
+
 
 /* On-Page Console Styles */
 #onPageConsoleContainer {

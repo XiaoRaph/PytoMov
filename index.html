@@ -84,8 +84,19 @@
         <p>Status: Idle</p>
     </div>
 
+    <div id="previewArea" style="display: none; margin-top: 20px;">
+        <div class="canvas-container">
+            <h3>Original Image</h3>
+            <canvas id="originalPreviewCanvas"></canvas>
+        </div>
+        <div class="canvas-container">
+            <h3>Live Preview (with Effects & Text)</h3>
+            <canvas id="previewCanvas"></canvas> <!-- Existing canvas -->
+        </div>
+    </div>
+
     <a id="downloadLink" style="display:none;" download="output.webm">Download Video (WebM)</a>
-    <canvas id="previewCanvas" style="display:none;"></canvas> <!-- Hidden canvas for processing -->
+    <!-- Hidden canvas for processing was previewCanvas, it's now visible in previewArea -->
 
     <script src="lib/whammy.js"></script>
     <script src="script.js"></script>
