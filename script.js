@@ -343,12 +343,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             console.log("[Diag][generateVideoCanvas] Compiling WebM video...");
             updateStatus("Compiling WebM video... This might take a moment.");
-            // Whammy's compile is synchronous for the array output, then we make it a blob.
-            const output = video.compile();
-            const videoBlob = new Blob(output, { type: 'video/webm' });
+            // Whammy's compile() method returns a Blob directly when called without arguments (outputAsArray is false).
+            const videoBlob = video.compile();
             const videoUrl = URL.createObjectURL(videoBlob);
 
-            console.log("[Diag][generateVideoCanvas] WebM video compiled. Blob URL created.");
+            console.log("[Diag][generateVideoCanvas] WebM video Blob received from compile(). Blob URL created.");
 
             downloadLink.href = videoUrl;
             downloadLink.download = `video_output_${Date.now()}.webm`;
