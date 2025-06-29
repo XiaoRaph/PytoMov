@@ -255,232 +255,101 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             console.log("[Diag] Data for FFmpeg:", logData);
 
-            console.log("[Diag] Calling generateVideoWithFFmpeg()...");
-            generateVideoWithFFmpeg(); // Corrected: This was the missing call
-            console.log("[Diag] Returned from generateVideoWithFFmpeg() call site.");
+            console.log("[Diag] Calling generateVideoWithCanvas()..."); // Will be renamed/refactored
+            generateVideoWithCanvas();
+            console.log("[Diag] Returned from generateVideoWithCanvas() call site.");
         });
     }
 
-    // --- FFmpeg Integration ---
-    let ffmpeg;
-    let ffmpegLoaded = false;
+    // --- FFmpeg Integration Removed ---
 
-    // Assuming fetchFile will be available globally via FFmpegUtil from @ffmpeg/util script
-    // const { fetchFile } = FFmpegUtil; // This would be ideal if FFmpegUtil exposes it directly like this.
-    // For now, if generateVideoWithFFmpeg needs fetchFile, it has to be FFmpegUtil.fetchFile
-
-    async function loadFFmpeg() {
-        console.log("[Diag][loadFFmpeg] Attempting to load FFmpeg using createFFmpeg approach...");
-        if (ffmpegLoaded) {
-            console.log("[Diag][loadFFmpeg] FFmpeg already loaded. Returning instance.");
-            return ffmpeg;
-        }
-        updateStatus("Initializing FFmpeg with createFFmpeg - Please wait...");
-        console.log("[Diag][loadFFmpeg] FFmpeg not loaded yet. Proceeding with createFFmpeg sequence.");
-
-        try {
-            // This is based on the user's suggestion.
-            // IMPORTANT: FFmpegWASM.createFFmpeg may not exist with the current @ffmpeg/ffmpeg@0.12.15 UMD script.
-            // This will likely throw an error if FFmpegWASM.createFFmpeg is not a function.
-            if (typeof FFmpegWASM.createFFmpeg !== 'function') {
-                const errorMsg = "FFmpegWASM.createFFmpeg is not a function. This suggests the loaded @ffmpeg/ffmpeg UMD script (v0.12.15) does not expose createFFmpeg. User's suggested method might be for a different version or import type (ESM).";
-                console.error(`[Diag][loadFFmpeg] ${errorMsg}`);
-                updateStatus(`Error: ${errorMsg}`);
-                throw new Error(errorMsg);
-            }
-
-            console.log("[Diag][loadFFmpeg] Instantiating with FFmpegWASM.createFFmpeg()...");
-            const corePath = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.4/dist/umd/ffmpeg-core.js';
-            console.log(`[Diag][loadFFmpeg] Using corePath: ${corePath}`);
-
-            ffmpeg = FFmpegWASM.createFFmpeg({
-                corePath: corePath,
-                log: true, // Enable logging as per user suggestion
-            });
-            console.log("[Diag][loadFFmpeg] FFmpeg instance presumably created via createFFmpeg.");
-
-            // createFFmpeg usually requires an explicit load call afterwards.
-            console.log("[Diag][loadFFmpeg] Calling ffmpeg.load()...");
-            await ffmpeg.load();
-            console.log("[Diag][loadFFmpeg] ffmpeg.load() completed.");
-
-            // Event listeners might need to be attached differently if createFFmpeg handles them,
-            // but typically they are attached to the instance.
-            // Re-attaching or ensuring they are active if log:true doesn't cover progress.
-            ffmpeg.on('log', ({ type, message }) => { // type is not always present in log events from createFFmpeg's log:true
-                console.log(`[Diag][FFmpeg Internal Log]: ${message.substring(0,200)}...`);
-                updateStatus(`FFmpeg: ${message.substring(0,150)}...`);
-            });
-            ffmpeg.on('progress', ({ progress, time }) => {
-                const progressPercent = Math.round(progress * 100);
-                if (progressPercent > 0 && progressPercent <= 100) {
-                    console.log(`[Diag][FFmpeg Progress] ${progressPercent}% (time: ${time})`);
-                    updateStatus(`Encoding: ${progressPercent}% (frame time: ${time / 1000000}s)`);
-                }
-            });
-            console.log("[Diag][loadFFmpeg] Event listeners for log and progress (re-)attached.");
+    // generateBtn.disabled = true; // Button will be enabled by default now
+    // updateStatus("Initializing FFmpeg - Please wait..."); // Not needed
+    // No FFmpeg pre-loading, button is active by default.
+    // If any other initialization is needed in the future, it can go here.
+    updateStatus("Ready to generate video using Canvas API.");
+    generateBtn.disabled = false; // Ensure button is enabled
 
 
-            ffmpegLoaded = true;
-            console.log("[Diag][loadFFmpeg] ffmpegLoaded set to true.");
-            updateStatus("FFmpeg loaded successfully via createFFmpeg.");
-            return ffmpeg;
-        } catch (error) {
-            console.error("[Diag][loadFFmpeg] Error during FFmpeg loading (createFFmpeg path):", error);
-            updateStatus(`Error loading FFmpeg (createFFmpeg): ${error}. Check console.`);
-            ffmpegLoaded = false;
-            console.log("[Diag][loadFFmpeg] ffmpegLoaded set to false due to error (createFFmpeg path).");
-            throw error;
-        } finally {
-            console.log(`[Diag][loadFFmpeg] Exiting loadFFmpeg function (createFFmpeg path). ffmpegLoaded: ${ffmpegLoaded}`);
-        }
-    }
-
-    // Pre-load FFmpeg when the page is ready, but don't block UI
-    // Also, disable button until FFmpeg is loaded for the first time.
-    generateBtn.disabled = true;
-    updateStatus("Initializing FFmpeg - Please wait...");
-    loadFFmpeg()
-        .then(() => {
-            generateBtn.disabled = false;
-            updateStatus("FFmpeg initialized. Ready to generate video.");
-        })
-        .catch(err => {
-            console.warn("Pre-loading FFmpeg failed. Button will remain disabled until manual load attempt or refresh.");
-            updateStatus("FFmpeg failed to initialize. Please refresh or check console. Generation disabled.");
-            // Keep button disabled as FFmpeg is critical
-        });
-
-
-    async function generateVideoWithFFmpeg() {
-        console.log("[Diag][generateVideo] Entered function.");
+    async function generateVideoWithCanvas() { // Renamed from generateVideoWithFFmpeg, content to be replaced
+        console.log("[Diag][generateVideoCanvas] Entered function.");
 
         if (!loadedImage) {
             updateStatus("Error: Please upload an image first.");
-            console.error("[Diag][generateVideo] No loadedImage found. Aborting.");
+            console.error("[Diag][generateVideoCanvas] No loadedImage found. Aborting.");
             alert("Please upload an image first.");
             return;
         }
-        console.log("[Diag][generateVideo] loadedImage check passed.");
+        console.log("[Diag][generateVideoCanvas] loadedImage check passed.");
 
         const durationSec = parseFloat(durationInput.value);
         const fpsVal = parseInt(fpsInput.value, 10);
-        console.log(`[Diag][generateVideo] Parsed duration: ${durationSec}, Parsed FPS: ${fpsVal}`);
+        console.log(`[Diag][generateVideoCanvas] Parsed duration: ${durationSec}, Parsed FPS: ${fpsVal}`);
 
         if (isNaN(durationSec) || durationSec <= 0) {
             updateStatus("Error: Invalid duration. Must be a positive number.");
-            console.error(`[Diag][generateVideo] Invalid duration: ${durationSec}. Aborting.`);
+            console.error(`[Diag][generateVideoCanvas] Invalid duration: ${durationSec}. Aborting.`);
             alert("Error: Invalid duration. Must be a positive number.");
             return;
         }
         if (isNaN(fpsVal) || fpsVal <= 0) {
             updateStatus("Error: Invalid FPS. Must be a positive integer.");
-            console.error(`[Diag][generateVideo] Invalid FPS: ${fpsVal}. Aborting.`);
+            console.error(`[Diag][generateVideoCanvas] Invalid FPS: ${fpsVal}. Aborting.`);
             alert("Error: Invalid FPS. Must be a positive integer.");
             return;
         }
-        console.log("[Diag][generateVideo] Duration and FPS validation passed.");
+        console.log("[Diag][generateVideoCanvas] Duration and FPS validation passed.");
 
-        console.log(`[Diag][generateVideo] Checking ffmpegLoaded state: ${ffmpegLoaded}`);
-        if (!ffmpegLoaded) {
-            updateStatus("FFmpeg is not loaded. Attempting to load now...");
-            console.log("[Diag][generateVideo] FFmpeg not loaded. Calling loadFFmpeg().");
-            try {
-                await loadFFmpeg();
-                console.log(`[Diag][generateVideo] loadFFmpeg() completed. New ffmpegLoaded state: ${ffmpegLoaded}`);
-                if (!ffmpegLoaded) {
-                    updateStatus("FFmpeg could not be loaded. Cannot generate video.");
-                    console.error("[Diag][generateVideo] FFmpeg still not loaded after attempt. Aborting.");
-                    alert("FFmpeg could not be loaded. Cannot generate video. Check console.");
-                    return;
-                }
-            } catch (error) {
-                 updateStatus("FFmpeg could not be loaded. Cannot generate video.");
-                 console.error("[Diag][generateVideo] Error during dynamic loadFFmpeg call:", error);
-                 alert("FFmpeg could not be loaded. Cannot generate video. Check console.");
-                return;
-            }
-        }
-        console.log("[Diag][generateVideo] FFmpeg is loaded and ready.");
-
-        updateStatus("Starting video generation... This may take some time.");
-        console.log("[Diag][generateVideo] Disabling generate button and hiding download link.");
+        updateStatus("Starting video generation with Canvas... This may take some time.");
+        console.log("[Diag][generateVideoCanvas] Disabling generate button and hiding download link.");
         generateBtn.disabled = true;
         downloadLink.style.display = 'none';
 
         try {
-            console.log("[Diag][generateVideo] Entering FFmpeg processing try block.");
-            // const textToRender = textInput.value; // Already captured by drawTextOnCanvas (and not directly used here)
-            // Re-parse for safety, though already done above.
-            const currentDurationSec = parseFloat(durationInput.value);
-            const currentFpsVal = parseInt(fpsInput.value, 10);
-            const inputImageName = 'input.png';
-            const outputVideoName = 'output.mp4';
-            console.log(`[Diag][generateVideo] Using Duration: ${currentDurationSec}, FPS: ${currentFpsVal}`);
+            console.log("[Diag][generateVideoCanvas] Entering Canvas processing try block.");
 
+            const totalFrames = Math.floor(durationSec * fpsVal);
+            const frameDelay = 1000 / fpsVal; // delay in ms
 
-            console.log("[Diag][generateVideo] Ensuring canvas is up-to-date by calling drawTextOnCanvas().");
+            // Ensure the preview canvas is up-to-date with the latest text and image
+            // This is important because drawTextOnCanvas updates the previewCanvas
+            // which we will be using to grab frames.
             drawTextOnCanvas();
-            console.log("[Diag][generateVideo] Getting dataURL from previewCanvas.");
-            const dataURL = previewCanvas.toDataURL('image/png');
-            console.log("[Diag][generateVideo] Fetching dataURL.");
-            const fetchRes = await fetch(dataURL);
-            console.log("[Diag][generateVideo] Converting fetched response to blob.");
-            const blob = await fetchRes.blob();
-            console.log("[Diag][generateVideo] Converting blob to arrayBuffer.");
-            const arrayBuffer = await blob.arrayBuffer();
-            console.log("[Diag][generateVideo] Converting arrayBuffer to Uint8Array.");
-            const uint8Array = new Uint8Array(arrayBuffer);
-            console.log("[Diag][generateVideo] Image data prepared as Uint8Array.");
 
-            updateStatus("Writing image to FFmpeg virtual file system...");
-            console.log(`[Diag][generateVideo] Writing image to FFmpeg FS as '${inputImageName}'.`);
-            await ffmpeg.writeFile(inputImageName, uint8Array);
-            console.log(`[Diag][generateVideo] Image written to FFmpeg FS successfully.`);
-            updateStatus("Image written to FS.");
+            const video = new Whammy.Video(fpsVal);
 
-            const command = [
-                '-r', `${currentFpsVal}`,
-                '-i', inputImageName,
-                '-vf', `format=yuv420p`,
-                '-c:v', 'libx264',
-                '-preset', 'ultrafast',
-                '-tune', 'stillimage',
-                '-t', `${currentDurationSec}`,
-                outputVideoName
-            ];
-            console.log("[Diag][generateVideo] FFmpeg command constructed:", command);
+            for (let i = 0; i < totalFrames; i++) {
+                // The previewCanvas should already have the static image and text drawn on it.
+                // If text/image were dynamic per frame, we'd redraw here.
+                // For this project, the content is static throughout the video.
+                video.add(previewCanvas); // Add current state of previewCanvas
+                updateStatus(`Encoding frame ${i + 1}/${totalFrames}`);
+                console.log(`[Diag][generateVideoCanvas] Added frame ${i + 1}/${totalFrames}`);
+                // Whammy doesn't require a delay here, it just collects frames.
+                // If we needed to display the frame being processed, we might await a short delay.
+            }
 
-            updateStatus(`Running FFmpeg command: ffmpeg ${command.join(' ')}`);
-            console.log("[Diag][generateVideo] Executing FFmpeg command...");
-            await ffmpeg.exec(...command);
-            console.log("[Diag][generateVideo] FFmpeg command execution completed.");
-            updateStatus("FFmpeg processing complete.");
-
-            updateStatus("Reading processed video file...");
-            console.log(`[Diag][generateVideo] Reading output file '${outputVideoName}' from FFmpeg FS.`);
-            const outputData = await ffmpeg.readFile(outputVideoName);
-            console.log("[Diag][generateVideo] Output file read successfully from FFmpeg FS.");
-            updateStatus("Video file read.");
-
-            console.log("[Diag][generateVideo] Creating Blob for download link.");
-            const videoBlob = new Blob([outputData.buffer], { type: 'video/mp4' });
+            console.log("[Diag][generateVideoCanvas] Compiling WebM video...");
+            updateStatus("Compiling WebM video... This might take a moment.");
+            // Whammy's compile is synchronous for the array output, then we make it a blob.
+            const output = video.compile();
+            const videoBlob = new Blob(output, { type: 'video/webm' });
             const videoUrl = URL.createObjectURL(videoBlob);
-            console.log("[Diag][generateVideo] Blob URL created:", videoUrl.substring(0, 100) + "...");
+
+            console.log("[Diag][generateVideoCanvas] WebM video compiled. Blob URL created.");
 
             downloadLink.href = videoUrl;
-            downloadLink.download = `video_output_${Date.now()}.mp4`;
+            downloadLink.download = `video_output_${Date.now()}.webm`;
             downloadLink.style.display = 'block';
-            downloadLink.textContent = 'Download Video';
-            console.log("[Diag][generateVideo] Download link prepared and displayed.");
-            updateStatus("Video ready for download!");
+            downloadLink.textContent = 'Download Video (WebM)';
+            updateStatus("WebM video ready for download!");
 
         } catch (error) {
-            console.error("[Diag][generateVideo] Error during FFmpeg processing:", error);
-            updateStatus(`Error during video generation: ${error.message || error}. Check console for more details.`);
-            alert(`An error occurred during video generation: ${error.message || error}. Please check the console for more details and try again. If the error persists, try refreshing the page or using a smaller image/shorter duration.`);
+            console.error("[Diag][generateVideoCanvas] Error during Canvas video generation:", error);
+            updateStatus(`Error during video generation: ${error.message || error}.`);
+            alert(`An error occurred during video generation: ${error.message || error}.`);
         } finally {
-            console.log("[Diag][generateVideo] Entering finally block. Re-enabling generate button.");
+            console.log("[Diag][generateVideoCanvas] Entering finally block. Re-enabling generate button.");
             generateBtn.disabled = false;
         }
     }

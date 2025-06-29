@@ -57,14 +57,11 @@
         <p>Status: Idle</p>
     </div>
 
-    <a id="downloadLink" style="display:none;" download="output.mp4">Download Video</a>
+    <a id="downloadLink" style="display:none;" download="output.webm">Download Video (WebM)</a>
     <canvas id="previewCanvas" style="display:none;"></canvas> <!-- Hidden canvas for processing -->
 
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/umd/ffmpeg.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/dist/umd/index.js"></script>
-    <!-- Make sure to use a version of ffmpeg.js that is compatible with the version of ffmpeg-core you intend to use.
-         Using @0.12.15 from jsDelivr as an example, check the ffmpeg.wasm docs for latest recommended versions and practices.
-         The core is often loaded dynamically by ffmpeg.min.js, but explicit core loading might be needed for some setups. -->
+    <!-- FFmpeg scripts removed -->
+    <script src="https://cdn.jsdelivr.net/npm/whammy@0.0.1/whammy.js"></script>
     <script src="script.js"></script>
 
     <div id="onPageConsoleContainer">
