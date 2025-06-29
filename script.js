@@ -213,24 +213,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (generateBtn) {
         generateBtn.addEventListener('click', () => {
+            console.log("[Diag] Generate button clicked.");
+
+            console.log("[Diag] Checking loadedImage...");
             if (!loadedImage) {
                 updateStatus("Error: Please upload an image first.");
+                console.error("[Diag] loadedImage is null or undefined. Aborting.");
                 return;
             }
-            const duration = parseFloat(durationInput.value);
-            const fps = parseInt(fpsInput.value, 10);
+            console.log("[Diag] loadedImage is present:", loadedImage.src.substring(0, 50) + "..."); // Log first 50 chars of src
 
-            if (isNaN(duration) || duration <=0) {
+            const durationStr = durationInput.value;
+            const fpsStr = fpsInput.value;
+            console.log(`[Diag] Duration input string: "${durationStr}", FPS input string: "${fpsStr}"`);
+
+            const duration = parseFloat(durationStr);
+            const fps = parseInt(fpsStr, 10);
+            console.log(`[Diag] Parsed duration: ${duration}, Parsed FPS: ${fps}`);
+
+            if (isNaN(duration) || duration <= 0) {
                 updateStatus("Error: Please enter a valid positive duration.");
+                console.error(`[Diag] Invalid duration: ${duration}. Aborting.`);
                 return;
             }
-            if (isNaN(fps) || fps <=0) {
+            if (isNaN(fps) || fps <= 0) {
                 updateStatus("Error: Please enter a valid positive FPS.");
+                console.error(`[Diag] Invalid FPS: ${fps}. Aborting.`);
                 return;
             }
 
-            updateStatus('Generate button clicked. Preparing data for FFmpeg (next step)...');
-            console.log({
+            updateStatus('Generate button click validated. Preparing data for FFmpeg...');
+            const logData = {
                 imageName: loadedImage.name || "loaded_image",
                 text: textInput.value,
                 duration: duration,
@@ -239,9 +252,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 fontFamily: fontFamilyInput.value,
                 textColor: textColorInput.value,
                 bgColor: enableBgColorCheckbox.checked ? bgColorInput.value : "None"
-            });
-            // FFmpeg logic is now called directly by this name
-            // generateVideoWithFFmpeg(); // This was a slight redundancy; the function IS generateVideoWithFFmpeg
+            };
+            console.log("[Diag] Data for FFmpeg:", logData);
+
+            console.log("[Diag] Calling generateVideoWithFFmpeg()...");
+            generateVideoWithFFmpeg(); // Corrected: This was the missing call
+            console.log("[Diag] Returned from generateVideoWithFFmpeg() call site.");
         });
     }
 
@@ -250,49 +266,51 @@ document.addEventListener('DOMContentLoaded', () => {
     let ffmpegLoaded = false;
 
     async function loadFFmpeg() {
-        if (ffmpegLoaded) return ffmpeg;
+        console.log("[Diag][loadFFmpeg] Attempting to load FFmpeg...");
+        if (ffmpegLoaded) {
+            console.log("[Diag][loadFFmpeg] FFmpeg already loaded. Returning instance.");
+            return ffmpeg;
+        }
         updateStatus("Loading FFmpeg-core. This might take a moment...");
-        try {
-            ffmpeg = new FFmpeg.FFmpeg(); // Use the global FFmpeg object from the CDN script
+        console.log("[Diag][loadFFmpeg] FFmpeg not loaded yet. Proceeding with load sequence.");
 
-            // Set up logger and progress updates
+        try {
+            console.log("[Diag][loadFFmpeg] Instantiating FFmpeg.FFmpeg()...");
+            ffmpeg = new FFmpeg.FFmpeg();
+            console.log("[Diag][loadFFmpeg] FFmpeg instance created.");
+
             ffmpeg.on('log', ({ type, message }) => {
-                // type can be 'fferr', 'info', 'ffout'
-                // console.log(`FFmpeg log (${type}): ${message}`);
-                if (type === 'fferr' || type === 'info') { // Avoid too much ffout spam
-                    updateStatus(`FFmpeg: ${message.substring(0,150)}...`); // Keep status short
+                // console.log(`[Diag][FFmpeg Internal Log] (${type}): ${message}`); // Potentially too verbose
+                if (type === 'fferr' || type === 'info') {
+                     console.log(`[Diag][FFmpeg Internal Log] (${type}): ${message.substring(0,200)}...`);
+                    updateStatus(`FFmpeg: ${message.substring(0,150)}...`);
                 }
             });
             ffmpeg.on('progress', ({ progress, time }) => {
                 const progressPercent = Math.round(progress * 100);
                 if (progressPercent > 0 && progressPercent <= 100) {
+                    console.log(`[Diag][FFmpeg Progress] ${progressPercent}% (time: ${time})`);
                     updateStatus(`Encoding: ${progressPercent}% (frame time: ${time / 1000000}s)`);
                 }
             });
+            console.log("[Diag][loadFFmpeg] Event listeners for log and progress attached.");
 
-            // Load the WASM core.
-            // The path to ffmpeg-core.wasm etc. might need to be configured if not automatically found.
-            // For unpkg, it usually resolves correctly relative to the ffmpeg.min.js script.
-            // Example using a specific core path if needed:
-            // await ffmpeg.load({
-            //    coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js", // or .wasm, .worker.js etc.
-            // });
-            // Check ffmpeg.wasm documentation for the correct way to load for the version you're using.
-            // For v0.12.x, it often involves loading core and wasm files.
-            // For simplicity, let's assume the default load() works or adjust based on version docs.
-             // For ffmpeg.wasm v0.11 and later, the load method is simplified.
-            // For v0.12.x, you might need to specify coreURL or it might load it from a default path.
-            // The CDN version of ffmpeg.min.js should handle this.
+            console.log("[Diag][loadFFmpeg] Calling ffmpeg.load()...");
             await ffmpeg.load();
+            console.log("[Diag][loadFFmpeg] ffmpeg.load() completed.");
 
             ffmpegLoaded = true;
+            console.log("[Diag][loadFFmpeg] ffmpegLoaded set to true.");
             updateStatus("FFmpeg loaded successfully.");
             return ffmpeg;
         } catch (error) {
-            console.error("Error loading FFmpeg:", error);
+            console.error("[Diag][loadFFmpeg] Error during FFmpeg loading:", error);
             updateStatus(`Error loading FFmpeg: ${error}. Check console for details.`);
-            ffmpegLoaded = false; // Ensure it's marked as not loaded
-            throw error; // Re-throw for generateVideo to catch
+            ffmpegLoaded = false;
+            console.log("[Diag][loadFFmpeg] ffmpegLoaded set to false due to error.");
+            throw error;
+        } finally {
+            console.log(`[Diag][loadFFmpeg] Exiting loadFFmpeg function. ffmpegLoaded: ${ffmpegLoaded}`);
         }
     }
 
@@ -313,114 +331,135 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function generateVideoWithFFmpeg() {
+        console.log("[Diag][generateVideo] Entered function.");
+
         if (!loadedImage) {
             updateStatus("Error: Please upload an image first.");
-            alert("Please upload an image first."); // More prominent error
+            console.error("[Diag][generateVideo] No loadedImage found. Aborting.");
+            alert("Please upload an image first.");
             return;
         }
+        console.log("[Diag][generateVideo] loadedImage check passed.");
 
         const durationSec = parseFloat(durationInput.value);
         const fpsVal = parseInt(fpsInput.value, 10);
+        console.log(`[Diag][generateVideo] Parsed duration: ${durationSec}, Parsed FPS: ${fpsVal}`);
 
         if (isNaN(durationSec) || durationSec <= 0) {
             updateStatus("Error: Invalid duration. Must be a positive number.");
+            console.error(`[Diag][generateVideo] Invalid duration: ${durationSec}. Aborting.`);
             alert("Error: Invalid duration. Must be a positive number.");
             return;
         }
         if (isNaN(fpsVal) || fpsVal <= 0) {
             updateStatus("Error: Invalid FPS. Must be a positive integer.");
+            console.error(`[Diag][generateVideo] Invalid FPS: ${fpsVal}. Aborting.`);
             alert("Error: Invalid FPS. Must be a positive integer.");
             return;
         }
+        console.log("[Diag][generateVideo] Duration and FPS validation passed.");
 
-
+        console.log(`[Diag][generateVideo] Checking ffmpegLoaded state: ${ffmpegLoaded}`);
         if (!ffmpegLoaded) {
             updateStatus("FFmpeg is not loaded. Attempting to load now...");
+            console.log("[Diag][generateVideo] FFmpeg not loaded. Calling loadFFmpeg().");
             try {
                 await loadFFmpeg();
-                if (!ffmpegLoaded) { // Check again after load attempt
+                console.log(`[Diag][generateVideo] loadFFmpeg() completed. New ffmpegLoaded state: ${ffmpegLoaded}`);
+                if (!ffmpegLoaded) {
                     updateStatus("FFmpeg could not be loaded. Cannot generate video.");
+                    console.error("[Diag][generateVideo] FFmpeg still not loaded after attempt. Aborting.");
                     alert("FFmpeg could not be loaded. Cannot generate video. Check console.");
                     return;
                 }
             } catch (error) {
                  updateStatus("FFmpeg could not be loaded. Cannot generate video.");
+                 console.error("[Diag][generateVideo] Error during dynamic loadFFmpeg call:", error);
                  alert("FFmpeg could not be loaded. Cannot generate video. Check console.");
                 return;
             }
         }
+        console.log("[Diag][generateVideo] FFmpeg is loaded and ready.");
 
         updateStatus("Starting video generation... This may take some time.");
+        console.log("[Diag][generateVideo] Disabling generate button and hiding download link.");
         generateBtn.disabled = true;
         downloadLink.style.display = 'none';
 
         try {
-            const textToRender = textInput.value; // Already captured by drawTextOnCanvas
-            const durationSec = parseFloat(durationInput.value);
-            const fpsVal = parseInt(fpsInput.value, 10);
-            const inputImageName = 'input.png'; // Arbitrary name for FFmpeg's FS
+            console.log("[Diag][generateVideo] Entering FFmpeg processing try block.");
+            // const textToRender = textInput.value; // Already captured by drawTextOnCanvas (and not directly used here)
+            // Re-parse for safety, though already done above.
+            const currentDurationSec = parseFloat(durationInput.value);
+            const currentFpsVal = parseInt(fpsInput.value, 10);
+            const inputImageName = 'input.png';
             const outputVideoName = 'output.mp4';
+            console.log(`[Diag][generateVideo] Using Duration: ${currentDurationSec}, FPS: ${currentFpsVal}`);
 
-            // 1. Get image data from canvas (which already has text drawn on it)
-            //    It's important that drawTextOnCanvas() has been called with latest settings before this.
-            drawTextOnCanvas(); // Ensure canvas is up-to-date
+
+            console.log("[Diag][generateVideo] Ensuring canvas is up-to-date by calling drawTextOnCanvas().");
+            drawTextOnCanvas();
+            console.log("[Diag][generateVideo] Getting dataURL from previewCanvas.");
             const dataURL = previewCanvas.toDataURL('image/png');
+            console.log("[Diag][generateVideo] Fetching dataURL.");
             const fetchRes = await fetch(dataURL);
+            console.log("[Diag][generateVideo] Converting fetched response to blob.");
             const blob = await fetchRes.blob();
+            console.log("[Diag][generateVideo] Converting blob to arrayBuffer.");
             const arrayBuffer = await blob.arrayBuffer();
+            console.log("[Diag][generateVideo] Converting arrayBuffer to Uint8Array.");
             const uint8Array = new Uint8Array(arrayBuffer);
+            console.log("[Diag][generateVideo] Image data prepared as Uint8Array.");
 
-            // 2. Write the image to FFmpeg's virtual file system
             updateStatus("Writing image to FFmpeg virtual file system...");
+            console.log(`[Diag][generateVideo] Writing image to FFmpeg FS as '${inputImageName}'.`);
             await ffmpeg.writeFile(inputImageName, uint8Array);
+            console.log(`[Diag][generateVideo] Image written to FFmpeg FS successfully.`);
             updateStatus("Image written to FS.");
 
-            // 3. Construct and run FFmpeg command
-            // Command for creating a video from a single image, ensuring correct frame duplication.
-            // The text is already on the image via canvas.
-            // By setting -r for the input, we tell FFmpeg to treat the single image as a sequence of frames at that rate.
             const command = [
-                '-r', `${fpsVal}`,            // Set the input frame rate for the image
-                '-i', inputImageName,         // Input image file
-                '-vf', `format=yuv420p`,      // Ensure yuv420p for MP4 compatibility (fps filter removed as input rate handles it)
-                '-c:v', 'libx264',            // Video codec
-                '-preset', 'ultrafast',       // Encoding speed
-                '-tune', 'stillimage',        // Optimize for still images
-                '-t', `${durationSec}`,       // Duration of the output video
-                // '-loop 1' is removed as -r on input handles the "looping" or frame duplication effectively.
-                // The `fps=${fpsVal}` in vf is also removed because the input stream is now correctly rated.
+                '-r', `${currentFpsVal}`,
+                '-i', inputImageName,
+                '-vf', `format=yuv420p`,
+                '-c:v', 'libx264',
+                '-preset', 'ultrafast',
+                '-tune', 'stillimage',
+                '-t', `${currentDurationSec}`,
                 outputVideoName
             ];
+            console.log("[Diag][generateVideo] FFmpeg command constructed:", command);
 
             updateStatus(`Running FFmpeg command: ffmpeg ${command.join(' ')}`);
-            await ffmpeg.exec(...command); // Spread the array for exec
+            console.log("[Diag][generateVideo] Executing FFmpeg command...");
+            await ffmpeg.exec(...command);
+            console.log("[Diag][generateVideo] FFmpeg command execution completed.");
             updateStatus("FFmpeg processing complete.");
 
-            // 4. Read the output video file
             updateStatus("Reading processed video file...");
+            console.log(`[Diag][generateVideo] Reading output file '${outputVideoName}' from FFmpeg FS.`);
             const outputData = await ffmpeg.readFile(outputVideoName);
+            console.log("[Diag][generateVideo] Output file read successfully from FFmpeg FS.");
             updateStatus("Video file read.");
 
-            // 5. Create a Blob and provide a download link
+            console.log("[Diag][generateVideo] Creating Blob for download link.");
             const videoBlob = new Blob([outputData.buffer], { type: 'video/mp4' });
             const videoUrl = URL.createObjectURL(videoBlob);
+            console.log("[Diag][generateVideo] Blob URL created:", videoUrl.substring(0, 100) + "...");
 
             downloadLink.href = videoUrl;
             downloadLink.download = `video_output_${Date.now()}.mp4`;
             downloadLink.style.display = 'block';
             downloadLink.textContent = 'Download Video';
+            console.log("[Diag][generateVideo] Download link prepared and displayed.");
             updateStatus("Video ready for download!");
 
-            // Clean up the file from FFmpeg's FS
-            // await ffmpeg.deleteFile(inputImageName); // FS is usually in memory and gets reset.
-            // await ffmpeg.deleteFile(outputVideoName); // Explicit deletion can be added if memory becomes an issue.
-
         } catch (error) {
-            console.error("Error during FFmpeg processing:", error);
+            console.error("[Diag][generateVideo] Error during FFmpeg processing:", error);
             updateStatus(`Error during video generation: ${error.message || error}. Check console for more details.`);
             alert(`An error occurred during video generation: ${error.message || error}. Please check the console for more details and try again. If the error persists, try refreshing the page or using a smaller image/shorter duration.`);
         } finally {
-            generateBtn.disabled = false; // Re-enable button
+            console.log("[Diag][generateVideo] Entering finally block. Re-enabling generate button.");
+            generateBtn.disabled = false;
         }
     }
 
