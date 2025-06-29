@@ -11,6 +11,7 @@ PytoMov is a simple web-based tool that allows you to create a video file from a
 *   **Customize Appearance:**
     *   Set video duration and Frames Per Second (FPS).
     *   Adjust font size, color, and family.
+    *   Choose text position (e.g., top-left, center, bottom-right).
     *   Optionally add a background color to your text for better visibility.
 *   **Client-Side Processing:** Video generation happens directly in your web browser.
 *   **Download Video:** Get your output as a `.webm` video file.

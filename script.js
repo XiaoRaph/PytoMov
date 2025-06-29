@@ -94,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bgColorInput = document.getElementById('bgColorInput');
     const clearBgColorBtn = document.getElementById('clearBgColorBtn');
     const enableBgColorCheckbox = document.getElementById('enableBgColor');
+    const textPositionInput = document.getElementById('textPositionInput'); // New text position dropdown
 
     let loadedImage = null; // Holds the currently loaded image object
 
@@ -166,37 +167,113 @@ document.addEventListener('DOMContentLoaded', () => {
         const textColor = textColorInput.value;
         const useBgColor = enableBgColorCheckbox.checked;
         const textBgColor = bgColorInput.value;
+        const position = textPositionInput.value;
 
         // Construct font string for canvas
-        // Handles cases like "50px", "3em", etc. if browser supports.
-        // For simplicity, we assume CSS-like font size string.
         ctx.font = `${fontSize} ${fontFamily}`;
         ctx.fillStyle = textColor;
-        ctx.textAlign = 'center'; // Simple centering for now, can be expanded
-        ctx.textBaseline = 'middle'; // Good for vertical centering
 
-        const x = previewCanvas.width / 2;
-        const y = previewCanvas.height / 2;
+        // Determine text alignment and position based on selection
+        let x, y;
+        const canvasWidth = previewCanvas.width;
+        const canvasHeight = previewCanvas.height;
+        const textMargin = 20; // Margin from edges
+
+        switch (position) {
+            case 'top_left':
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                x = textMargin;
+                y = textMargin;
+                break;
+            case 'top_center':
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                x = canvasWidth / 2;
+                y = textMargin;
+                break;
+            case 'top_right':
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'top';
+                x = canvasWidth - textMargin;
+                y = textMargin;
+                break;
+            case 'center_left':
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                x = textMargin;
+                y = canvasHeight / 2;
+                break;
+            case 'center':
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                x = canvasWidth / 2;
+                y = canvasHeight / 2;
+                break;
+            case 'center_right':
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                x = canvasWidth - textMargin;
+                y = canvasHeight / 2;
+                break;
+            case 'bottom_left':
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'bottom';
+                x = textMargin;
+                y = canvasHeight - textMargin;
+                break;
+            case 'bottom_center':
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                x = canvasWidth / 2;
+                y = canvasHeight - textMargin;
+                break;
+            case 'bottom_right':
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                x = canvasWidth - textMargin;
+                y = canvasHeight - textMargin;
+                break;
+            default: // Center (fallback)
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                x = canvasWidth / 2;
+                y = canvasHeight / 2;
+        }
 
         if (useBgColor && textBgColor) {
-            // Simple background: measure text and draw rect
             const textMetrics = ctx.measureText(text);
-            // These metrics can be tricky; this is a basic approximation
             let actualHeight = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
             let actualWidth = textMetrics.width;
 
-            // Fallback if actualBoundingBox is not fully supported
             if (isNaN(actualHeight) || isNaN(actualWidth)) {
-                 // Estimate height based on font size string (e.g. "50px" -> 50)
                 const sizeMatch = fontSize.match(/(\d+)/);
-                actualHeight = sizeMatch ? parseInt(sizeMatch[1], 10) * 1.2 : 50 * 1.2;
+                actualHeight = sizeMatch ? parseInt(sizeMatch[1], 10) * 1.2 : 50 * 1.2; // Approximation
                 actualWidth = textMetrics.width || (text.length * (actualHeight / 2)); // Very rough width
             }
 
             const padding = 10;
+            let bgX = x;
+            let bgY = y;
+
+            // Adjust background position based on textAlign and textBaseline
+            if (ctx.textAlign === 'center') {
+                bgX -= actualWidth / 2;
+            } else if (ctx.textAlign === 'right') {
+                bgX -= actualWidth;
+            }
+            // For textAlign 'left', bgX is already correct (x is the left edge)
+
+            if (ctx.textBaseline === 'middle') {
+                bgY -= actualHeight / 2;
+            } else if (ctx.textBaseline === 'bottom') {
+                bgY -= actualHeight;
+            }
+            // For textBaseline 'top', bgY is already correct (y is the top edge)
+
             ctx.fillStyle = textBgColor;
-            ctx.fillRect(x - actualWidth / 2 - padding, y - actualHeight / 2 - padding, actualWidth + padding * 2, actualHeight + padding * 2);
-            ctx.fillStyle = textColor; // Reset to text color
+            ctx.fillRect(bgX - padding, bgY - padding, actualWidth + padding * 2, actualHeight + padding * 2);
+            ctx.fillStyle = textColor; // Reset to text color for fillText
         }
 
         ctx.fillText(text, x, y);
@@ -205,10 +282,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add event listeners to various input fields.
     // When any of these inputs change, redraw the text on the canvas to update the preview.
-    [textInput, fontSizeInput, textColorInput, fontFamilyInput, bgColorInput, enableBgColorCheckbox].forEach(input => {
+    [textInput, fontSizeInput, textColorInput, fontFamilyInput, bgColorInput, enableBgColorCheckbox, textPositionInput].forEach(input => {
         if (input) {
-            // Use 'input' event for text fields for immediate feedback, 'change' for color pickers and checkboxes.
-            const eventType = (input.type === 'color' || input.type === 'checkbox') ? 'change' : 'input';
+            // Use 'input' event for text fields for immediate feedback, 'change' for color pickers, checkboxes, and select.
+            const eventType = (input.type === 'color' || input.type === 'checkbox' || input.tagName === 'SELECT') ? 'change' : 'input';
             input.addEventListener(eventType, drawTextOnCanvas);
         }
     });
