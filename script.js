@@ -281,26 +281,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             console.log("[Diag][loadFFmpeg] Instantiating FFmpegWASM.FFmpeg()...");
             ffmpeg = new FFmpegWASM.FFmpeg();
+            console.log("[Diag][loadFFmpeg] FFmpeg instance created.");
 
-            console.log("[Diag][loadFFmpeg] Instantiating with FFmpegWASM.createFFmpeg()...");
-            const corePath = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.4/dist/umd/ffmpeg-core.js';
-            console.log(`[Diag][loadFFmpeg] Using corePath: ${corePath}`);
-
-            ffmpeg = FFmpegWASM.createFFmpeg({
-                corePath: corePath,
-                log: true, // Enable logging as per user suggestion
-            });
-            console.log("[Diag][loadFFmpeg] FFmpeg instance presumably created via createFFmpeg.");
-
-            // createFFmpeg usually requires an explicit load call afterwards.
-            console.log("[Diag][loadFFmpeg] Calling ffmpeg.load()...");
-            await ffmpeg.load();
-            console.log("[Diag][loadFFmpeg] ffmpeg.load() completed.");
-
-            // Event listeners might need to be attached differently if createFFmpeg handles them,
-            // but typically they are attached to the instance.
-            // Re-attaching or ensuring they are active if log:true doesn't cover progress.
-            ffmpeg.on('log', ({ type, message }) => { // type is not always present in log events from createFFmpeg's log:true
+            ffmpeg.on('log', ({ message }) => {
                 console.log(`[Diag][FFmpeg Internal Log]: ${message.substring(0,200)}...`);
                 updateStatus(`FFmpeg: ${message.substring(0,150)}...`);
             });
@@ -311,21 +294,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateStatus(`Encoding: ${progressPercent}% (frame time: ${time / 1000000}s)`);
                 }
             });
-            console.log("[Diag][loadFFmpeg] Event listeners for log and progress (re-)attached.");
+            console.log("[Diag][loadFFmpeg] Event listeners for log and progress attached.");
 
-
+            await ffmpeg.load();
             ffmpegLoaded = true;
             console.log("[Diag][loadFFmpeg] ffmpegLoaded set to true.");
-            updateStatus("FFmpeg loaded successfully via createFFmpeg.");
+            updateStatus("FFmpeg loaded successfully.");
             return ffmpeg;
         } catch (error) {
-            console.error("[Diag][loadFFmpeg] Error during FFmpeg loading (createFFmpeg path):", error);
-            updateStatus(`Error loading FFmpeg (createFFmpeg): ${error}. Check console.`);
+            console.error("[Diag][loadFFmpeg] Error during FFmpeg loading:", error);
+            updateStatus(`Error loading FFmpeg: ${error}. Check console for details.`);
             ffmpegLoaded = false;
-            console.log("[Diag][loadFFmpeg] ffmpegLoaded set to false due to error (createFFmpeg path).");
+            console.log("[Diag][loadFFmpeg] ffmpegLoaded set to false due to error.");
             throw error;
         } finally {
-            console.log(`[Diag][loadFFmpeg] Exiting loadFFmpeg function (createFFmpeg path). ffmpegLoaded: ${ffmpegLoaded}`);
+            console.log(`[Diag][loadFFmpeg] Exiting loadFFmpeg function. ffmpegLoaded: ${ffmpegLoaded}`);
         }
     }
 
