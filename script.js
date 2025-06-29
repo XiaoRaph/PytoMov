@@ -73,10 +73,12 @@ window.onunhandledrejection = function(event) {
 };
 // --- End On-page console logger ---
 
+// Main script execution starts after the DOM is fully loaded.
 document.addEventListener('DOMContentLoaded', () => {
     // Ensure onPageConsole is re-fetched after DOM is loaded, if it wasn't available globally at script start
     // const onPageConsole = document.getElementById('onPageConsole'); // Already defined globally
 
+    // Get references to all relevant DOM elements
     const imageUpload = document.getElementById('imageUpload');
     const textInput = document.getElementById('textInput');
     const durationInput = document.getElementById('durationInput');
@@ -93,8 +95,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearBgColorBtn = document.getElementById('clearBgColorBtn');
     const enableBgColorCheckbox = document.getElementById('enableBgColor');
 
-    let loadedImage = null;
+    let loadedImage = null; // Holds the currently loaded image object
 
+    // Event listener for image file selection
     if (imageUpload) {
         imageUpload.addEventListener('change', (event) => {
             const file = event.target.files[0];
@@ -102,27 +105,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     loadedImage = new Image();
+                    // Event handler for when the image data has been loaded
                     loadedImage.onload = () => {
-                        // Set canvas dimensions to image dimensions
+                        // Set canvas dimensions to match the loaded image
                         previewCanvas.width = loadedImage.width;
                         previewCanvas.height = loadedImage.height;
-                        // Draw image on canvas
-                        ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height); // Clear previous
+                        // Draw the image onto the canvas
+                        ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height); // Clear previous content
                         ctx.drawImage(loadedImage, 0, 0);
-                        previewCanvas.style.display = 'block'; // Show canvas
+                        previewCanvas.style.display = 'block'; // Make canvas visible
                         updateStatus(`Image "${file.name}" loaded.`);
-                        // Trigger a preview render with current text settings
+                        // Update the canvas with text overlay now that the image is loaded
                         drawTextOnCanvas();
                     };
+                    // Event handler for errors during image loading
                     loadedImage.onerror = () => {
                         updateStatus(`Error loading image: ${file.name}`);
                         loadedImage = null;
                         previewCanvas.style.display = 'none';
                     };
-                    loadedImage.src = e.target.result;
+                    loadedImage.src = e.target.result; // Start loading the image data
                 };
-                reader.readAsDataURL(file);
+                reader.readAsDataURL(file); // Read the file as a data URL
             } else {
+                // No file selected or selection cleared
                 loadedImage = null;
                 previewCanvas.style.display = 'none';
                 updateStatus("Image selection cleared.");
@@ -130,16 +136,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Function to update status messages
+    /**
+     * Updates the status message displayed on the page and logs to console.
+     * @param {string} message - The message to display.
+     */
     function updateStatus(message) {
         statusMessages.textContent = message;
-        console.log(message);
+        console.log(message); // Also logs to the on-page console via overridden console.log
     }
 
-    // Function to draw text on canvas (will be called on input changes too)
+    /**
+     * Draws the loaded image and the overlay text onto the preview canvas.
+     * Called when the image loads or any text/style input changes.
+     */
     function drawTextOnCanvas() {
         if (!loadedImage) {
-            // updateStatus("Please upload an image first."); // This can be annoying if called too often
+            // updateStatus("Please upload an image first."); // This can be annoying if called too often, and image load handles initial status
             return;
         }
         if (!previewCanvas || !ctx) return;
@@ -191,17 +203,20 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus("Preview updated.");
     }
 
-    // Add event listeners to update canvas preview when text or style changes
+    // Add event listeners to various input fields.
+    // When any of these inputs change, redraw the text on the canvas to update the preview.
     [textInput, fontSizeInput, textColorInput, fontFamilyInput, bgColorInput, enableBgColorCheckbox].forEach(input => {
         if (input) {
+            // Use 'input' event for text fields for immediate feedback, 'change' for color pickers and checkboxes.
             const eventType = (input.type === 'color' || input.type === 'checkbox') ? 'change' : 'input';
             input.addEventListener(eventType, drawTextOnCanvas);
         }
     });
-    // Ensure fontFamilyInput also updates on 'change' if user blurs after typing
+    // Ensure fontFamilyInput also updates on 'change' (e.g., when user types and blurs)
+    // as 'input' might not cover all ways its value changes.
     if(fontFamilyInput) fontFamilyInput.addEventListener('change', drawTextOnCanvas);
 
-
+    // Event listener for the "No BG" button for text background color
     if (clearBgColorBtn) {
         clearBgColorBtn.addEventListener('click', () => {
             if (bgColorInput) bgColorInput.value = "#000000";
@@ -263,9 +278,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- FFmpeg Integration Removed ---
 
-
-
-    async function generateVideoWithCanvas() { // Renamed from generateVideoWithFFmpeg, content to be replaced
+    /**
+     * Generates a WebM video from the current canvas content using Whammy.js.
+     * It takes the loaded image with text overlay, captures frames,
+     * and compiles them into a video.
+     */
+    async function generateVideoWithCanvas() { // Renamed from generateVideoWithFFmpeg
         console.log("[Diag][generateVideoCanvas] Entered function.");
 
         if (!loadedImage) {
