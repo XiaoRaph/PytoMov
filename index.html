@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to Video Creator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Image to Video Creator</h1>
+
+    <div>
+        <label for="imageUpload">Upload Image:</label>
+        <input type="file" id="imageUpload" accept="image/*">
+    </div>
+
+    <div>
+        <label for="textInput">Overlay Text:</label>
+        <input type="text" id="textInput" value="Hello World">
+    </div>
+
+    <div>
+        <label for="durationInput">Duration (seconds):</label>
+        <input type="number" id="durationInput" value="5" min="1">
+    </div>
+
+    <div>
+        <label for="fpsInput">FPS (Frames Per Second):</label>
+        <input type="number" id="fpsInput" value="24" min="1">
+    </div>
+
+    <div>
+        <label for="fontSizeInput">Font Size (e.g., 50px, 3em):</label>
+        <input type="text" id="fontSizeInput" value="50px">
+    </div>
+
+    <div>
+        <label for="textColorInput">Text Color:</label>
+        <input type="color" id="textColorInput" value="#FFFFFF">
+    </div>
+
+    <div>
+        <label for="fontFamilyInput">Font Family (e.g., Arial, 'Times New Roman', sans-serif):</label>
+        <input type="text" id="fontFamilyInput" value="sans-serif">
+    </div>
+
+    <div>
+        <label for="bgColorInput">Text Background Color (optional):</label>
+        <input type="color" id="bgColorInput" value="#000000"> <button id="clearBgColorBtn">No BG</button>
+        <input type="checkbox" id="enableBgColor" title="Enable Background Color"> Enable
+    </div>
+
+
+    <button id="generateBtn">Generate Video</button>
+
+    <div id="statusMessages">
+        <p>Status: Idle</p>
+    </div>
+
+    <a id="downloadLink" style="display:none;" download="output.mp4">Download Video</a>
+    <canvas id="previewCanvas" style="display:none;"></canvas> <!-- Hidden canvas for processing -->
+
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/ffmpeg.min.js"></script>
+    <!-- Make sure to use a version of ffmpeg.js that is compatible with the version of ffmpeg-core you intend to use.
+         Using @0.12.10 as an example, check the ffmpeg.wasm docs for latest recommended versions and practices.
+         The core is often loaded dynamically by ffmpeg.min.js, but explicit core loading might be needed for some setups. -->
+    <script src="script.js"></script>
+</body>
+</html>

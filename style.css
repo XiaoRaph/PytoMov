@@ -1,0 +1,109 @@
+body {
+    font-family: sans-serif;
+    margin: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+h1 {
+    text-align: center;
+    color: #2c3e50;
+}
+
+div {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+label {
+    display: inline-block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input[type="file"],
+input[type="text"],
+input[type="number"],
+input[type="color"] {
+    width: calc(100% - 22px); /* Full width minus padding and border */
+    padding: 10px;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+input[type="color"] {
+    width: 100px; /* More appropriate width for color pickers */
+    height: 40px;
+    padding: 5px;
+}
+
+
+button {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #2980b9;
+}
+
+#clearBgColorBtn {
+    display: inline-block;
+    width: auto;
+    padding: 8px 12px;
+    background-color: #e74c3c;
+    margin-left: 10px;
+}
+#clearBgColorBtn:hover {
+    background-color: #c0392b;
+}
+
+
+#statusMessages {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #ecf0f1;
+    border-left: 5px solid #3498db;
+}
+
+#statusMessages p {
+    margin: 0;
+    padding: 5px 0;
+}
+
+#downloadLink {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 15px;
+    background-color: #2ecc71;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    text-align: center;
+    transition: background-color 0.3s ease;
+}
+
+#downloadLink:hover {
+    background-color: #27ae60;
+}
+
+/* Hidden by default, shown via JS if needed for preview */
+#previewCanvas {
+    display: block; /* Changed from none to block for layout testing, JS will control final visibility */
+    max-width: 100%;
+    margin-top: 10px;
+    border: 1px solid #ccc;
+}
