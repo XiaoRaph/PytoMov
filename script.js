@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to update status messages
     function updateStatus(message) {
-        statusMessages.innerHTML = `<p>${message}</p>`;
+        statusMessages.textContent = message;
         console.log(message);
     }
 
