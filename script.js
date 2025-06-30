@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const enableBgColorCheckbox = document.getElementById('enableBgColor');
     const textPositionInput = document.getElementById('textPositionInput');
     const imageFilterInput = document.getElementById('imageFilterInput');
+    const qualityInput = document.getElementById('qualityInput'); // Added for video quality
 
     const previewArea = document.getElementById('previewArea');
     const originalPreviewCanvas = document.getElementById('originalPreviewCanvas');
@@ -418,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * It takes the loaded image with text overlay, captures frames,
      * and compiles them into a video.
      */
-    async function generateVideoWithCanvas() { // Renamed from generateVideoWithFFmpeg
+    async function generateVideoWithCanvas() {
         console.log("[Diag][generateVideoCanvas] Entered function.");
 
         if (!loadedImage) {
@@ -431,7 +432,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const durationSec = parseFloat(durationInput.value);
         const fpsVal = parseInt(fpsInput.value, 10);
-        console.log(`[Diag][generateVideoCanvas] Parsed duration: ${durationSec}, Parsed FPS: ${fpsVal}`);
+        const qualityVal = parseFloat(qualityInput.value);
+
+        console.log(`[Diag][generateVideoCanvas] Parsed duration: ${durationSec}, Parsed FPS: ${fpsVal}, Quality: ${qualityVal}`);
 
         if (isNaN(durationSec) || durationSec <= 0) {
             updateStatus("Error: Invalid duration. Must be a positive number.");
@@ -459,32 +462,56 @@ document.addEventListener('DOMContentLoaded', () => {
             const numOriginalFrames = parseInt(originalFramesInput.value, 10) || 0;
             console.log(`[Diag][generateVideoCanvas] Number of initial original frames: ${numOriginalFrames}`);
 
-            const video = new Whammy.Video(fpsVal);
+            // Pass quality to Whammy.Video constructor
+            // Whammy.Video constructor is function WhammyVideo(speed, quality)
+            // speed is 1000 / duration, so fps is correct here.
+            // quality is a value between 0 and 1 for toDataURL('image/webp', quality)
+            const video = new Whammy.Video(fpsVal, qualityVal);
             const currentlySelectedFilter = imageFilterInput.value; // Cache user's choice for post-original frames
 
             for (let i = 0; i < totalFrames; i++) {
+                // Yield to the browser event loop periodically to prevent freezing
+                // Adjust the frequency of yielding as needed. Every 10 frames might be a good start.
+                if (i % 10 === 0) {
+                    updateStatus(`Encoding frame ${i + 1}/${totalFrames}...`);
+                    await new Promise(resolve => setTimeout(resolve, 0)); // Yield control
+                }
+
                 let filterForThisFrame = currentlySelectedFilter;
                 if (i < numOriginalFrames) {
                     filterForThisFrame = 'none'; // Force no filter for initial frames
                 }
 
                 // Redraw canvas for this specific frame's state (filter + text)
-                // The drawTextOnCanvas function now handles applying the filter before drawing text.
-                // We pass overrideFilter to ensure the correct filter state for this frame.
                 drawTextOnCanvas(filterForThisFrame);
 
                 video.add(previewCanvas); // Add current state of previewCanvas
-                updateStatus(`Encoding frame ${i + 1}/${totalFrames} (Filter: ${filterForThisFrame})`);
-                console.log(`[Diag][generateVideoCanvas] Added frame ${i + 1}/${totalFrames}. Filter applied: ${filterForThisFrame}`);
+                // Update status less frequently or make it part of the yielding block
+                if (i % 10 === 0 || i === totalFrames -1) {
+                    console.log(`[Diag][generateVideoCanvas] Added frame ${i + 1}/${totalFrames}. Filter applied: ${filterForThisFrame}`);
+                }
             }
 
             // After loop, restore preview to user's selected filter for consistency
             drawTextOnCanvas();
 
-            console.log("[Diag][generateVideoCanvas] Compiling WebM video...");
-            updateStatus("Compiling WebM video... This might take a moment.");
-            // Whammy's compile() method returns a Blob directly when called without arguments (outputAsArray is false).
-            const videoBlob = video.compile();
+            updateStatus("Compiling WebM video... This might take a significant amount of time.");
+            console.log("[Diag][generateVideoCanvas] Compiling WebM video (this part is still synchronous and can be long)...");
+
+            // The compile step itself is synchronous and CPU-intensive in Whammy.js.
+            // We can't make video.compile() asynchronous without modifying Whammy.js.
+            // However, the frame adding loop is now asynchronous.
+            const videoBlob = await new Promise((resolve, reject) => {
+                try {
+                    // Whammy's compile() method returns a Blob directly.
+                    const result = video.compile();
+                    resolve(result);
+                } catch (compileError) {
+                    console.error("[Diag][generateVideoCanvas] Error during Whammy compile:", compileError);
+                    reject(compileError);
+                }
+            });
+
             const videoUrl = URL.createObjectURL(videoBlob);
 
             console.log("[Diag][generateVideoCanvas] WebM video Blob received from compile(). Blob URL created.");
@@ -497,8 +524,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error("[Diag][generateVideoCanvas] Error during Canvas video generation:", error);
-            updateStatus(`Error during video generation: ${error.message || error}.`);
-            alert(`An error occurred during video generation: ${error.message || error}.`);
+            updateStatus(`Error during video generation: ${error.message || String(error)}.`);
+            alert(`An error occurred during video generation: ${error.message || String(error)}.`);
         } finally {
             console.log("[Diag][generateVideoCanvas] Entering finally block. Re-enabling generate button.");
             generateBtn.disabled = false;
