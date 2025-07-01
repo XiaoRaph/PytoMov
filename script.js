@@ -564,8 +564,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            mediaRecorder.start(); // No timeslice, no setTimeout wrapper, as per PR #27
-            console.log("[Diag][MediaRecorder] MediaRecorder started."); // Log from PR #27
+            mediaRecorder.start(100); // Re-add timeslice to encourage ondataavailable
+            console.log("[Diag][MediaRecorder] MediaRecorder started (with 100ms timeslice).");
             updateStatus("Recording in progress...");
 
             currentFrame = 0; // Ensure currentFrame is 0 before starting render loop
