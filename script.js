@@ -780,9 +780,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (recordedChunks.length === 0) {
                     console.error("[Diag][MediaRecorder] No data chunks recorded. Video will be empty.");
                     updateStatus("Error: No video data was recorded. Output might be empty or invalid.");
-                    // generateBtn.disabled = false; // Handled in finally
-                    // downloadLink.style.display = 'none'; // Already hidden
-                    // return; // Let finally block handle button re-enable
                 } else {
                     const videoBlob = new Blob(recordedChunks, { type: supportedMimeType });
                     console.log(`[Diag][MediaRecorder] Video Blob created. Size: ${videoBlob.size}, Type: ${videoBlob.type}`);
@@ -798,7 +795,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     downloadLink.textContent = 'Download Video (WebM - MediaRecorder)';
                     updateStatus("MediaRecorder video ready for download!");
                 }
-                // Re-enable button in finally block
+                generateBtn.disabled = false; // Re-enable button on successful stop
             };
 
             mediaRecorder.onerror = (event) => {
@@ -808,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     cancelAnimationFrame(renderLoopId);
                     renderLoopId = null;
                 }
-                // Button re-enabled in finally block
+                generateBtn.disabled = false; // Re-enable button on error
             };
 
             let currentFrame = 0;
@@ -902,10 +899,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (renderLoopId) {
                 cancelAnimationFrame(renderLoopId);
             }
-        } finally {
-            console.log("[Diag][MediaRecorder] Entering finally block. Re-enabling generate button.");
-            generateBtn.disabled = false;
+            generateBtn.disabled = false; // Re-enable button if setup fails
         }
+        // Removed finally block - button re-enabling is now handled by onstop and onerror
     }
 
 });
