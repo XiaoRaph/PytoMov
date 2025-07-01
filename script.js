@@ -837,10 +837,14 @@ document.addEventListener('DOMContentLoaded', () => {
             currentFrame = 0; // Reset/initialize for the renderLoop.
 
             function renderFrame() {
-                if (mediaRecorder && mediaRecorder.state !== "recording" && mediaRecorder.state !== "paused") {
-                    console.warn(`[Diag][MediaRecorder] renderFrame called while recorder state is ${mediaRecorder.state}. Stopping rAF.`);
-                    if(renderLoopId) cancelAnimationFrame(renderLoopId);
-                    renderLoopId = null;
+                // It's crucial to check recorder state here too, as rAF might fire once more
+                // even after stop() is called and before onstop clears renderLoopId.
+                if (!mediaRecorder || mediaRecorder.state !== "recording") {
+                    console.warn(`[Diag][MediaRecorder] renderFrame called but recorder state is '${mediaRecorder ? mediaRecorder.state : "null"}'. Halting rAF.`);
+                    if(renderLoopId) {
+                        cancelAnimationFrame(renderLoopId);
+                        renderLoopId = null;
+                    }
                     return;
                 }
 
@@ -851,39 +855,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(currentFrame % fpsVal === 0) { // Update status roughly every second
                          updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterForThisFrame})`);
                     }
-                    console.log(`[Diag][MediaRecorder] renderFrame loop: Drawing frame content for index ${currentFrame}. Filter: ${filterForThisFrame}`);
+                    // console.log(`[Diag][MediaRecorder] renderFrame loop: Drawing frame content for index ${currentFrame}. Filter: ${filterForThisFrame}`); // Potentially too verbose
                     currentFrame++;
                     renderLoopId = requestAnimationFrame(renderFrame);
                 } else {
-                    console.log(`[Diag][MediaRecorder] renderFrame loop finished after drawing frame index ${currentFrame - 1}. Total frames drawn by loop: ${currentFrame}.`);
-                    renderLoopId = null;
+                    console.log(`[Diag][MediaRecorder] renderFrame loop: Target totalFrames (${totalFrames}) reached or exceeded by currentFrame (${currentFrame}).`);
+                    // The loop will stop naturally as currentFrame will no longer be < totalFrames.
+                    // If mediaRecorder.stop() hasn't been called by timeout yet, it will continue recording 'empty' time.
+                    // The timeout for stop() is the primary mechanism for ending recording.
+                    // No need to explicitly set renderLoopId = null here as rAF won't schedule new calls.
                 }
             }
 
             mediaRecorder.onstart = () => {
                 console.log(`[Diag][MediaRecorder] MediaRecorder.onstart event. State: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
-                updateStatus("Recording in progress...");
-                renderLoopId = requestAnimationFrame(renderFrame);
+                if (mediaRecorder.state === "recording") {
+                    updateStatus("Recording in progress...");
+                    currentFrame = 0; // Ensure frame count starts from 0 for this recording session
+                    renderLoopId = requestAnimationFrame(renderFrame); // Start rendering loop
+
+                    // Schedule stop command only after recording has started
+                    const timeoutId = setTimeout(() => {
+                        console.log(`[Diag][MediaRecorder] setTimeout for stop() fired. Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
+                        if (mediaRecorder && mediaRecorder.state === "recording") {
+                            console.log("[Diag][MediaRecorder] Calling mediaRecorder.stop() from setTimeout.");
+                            mediaRecorder.stop(); // This should trigger mediaRecorder.onstop
+                        }
+                        // No need to cancel rAF here; onstop will handle it, or renderFrame will stop itself if state changes.
+                    }, durationSec * 1000);
+                    console.log(`[Diag][MediaRecorder] setTimeout for stop() scheduled for ${durationSec * 1000}ms. ID: ${timeoutId}. Timestamp: ${Date.now()}`);
+                } else {
+                    console.error(`[Diag][MediaRecorder] onstart event fired but state is not 'recording' (${mediaRecorder.state}). Video generation may fail.`);
+                    updateStatus(`Error: Recording could not start properly (state: ${mediaRecorder.state}).`);
+                    // Consider cleaning up / re-enabling button if this path is hit
+                    generateBtn.disabled = false;
+                }
             };
 
             // Note: Frame 0 content was pre-drawn before this point.
             console.log(`[Diag][MediaRecorder] Calling mediaRecorder.start() (after pre-drawing frame 0). Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
             mediaRecorder.start(); // Request to start recording. onstart will confirm.
-
-            // Stop recording after the specified duration
-            const timeoutId = setTimeout(() => {
-                console.log(`[Diag][MediaRecorder] setTimeout for stop() fired. Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
-                if (mediaRecorder && mediaRecorder.state === "recording") {
-                    console.log("[Diag][MediaRecorder] Calling mediaRecorder.stop() from setTimeout.");
-                    mediaRecorder.stop(); // This should trigger mediaRecorder.onstop
-                }
-                if (renderLoopId) { // Stop rAF loop if it's still somehow running
-                    cancelAnimationFrame(renderLoopId);
-                    renderLoopId = null;
-                    console.log("[Diag][MediaRecorder] Cleared rAF from timeout, as recording is stopping.");
-                }
-            }, durationSec * 1000);
-            console.log(`[Diag][MediaRecorder] setTimeout for stop() scheduled for ${durationSec * 1000}ms. ID: ${timeoutId}. Timestamp: ${Date.now()}`);
 
         } catch (error) {
             console.error("[Diag][MediaRecorder] Error during MediaRecorder video generation setup:", error);
