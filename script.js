@@ -762,9 +762,10 @@ document.addEventListener('DOMContentLoaded', () => {
             mediaRecorder = new MediaRecorder(stream, options);
 
             mediaRecorder.ondataavailable = (event) => {
+                console.log(`[Diag][MediaRecorder] ondataavailable event fired. Chunk size: ${event.data.size}. Timestamp: ${Date.now()}`);
                 if (event.data.size > 0) {
                     recordedChunks.push(event.data);
-                    console.log(`[Diag][MediaRecorder] Data available: chunk size ${event.data.size}`);
+                    // console.log(`[Diag][MediaRecorder] Data available: chunk size ${event.data.size}`); // More detailed log if needed
                 } else {
                     console.log("[Diag][MediaRecorder] Data available: chunk size 0 (ignoring).");
                 }
@@ -890,8 +891,8 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             // Note: Frame 0 content was pre-drawn before this point.
-            console.log(`[Diag][MediaRecorder] Calling mediaRecorder.start() (after pre-drawing frame 0). Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
-            mediaRecorder.start(); // Request to start recording. onstart will confirm.
+            console.log(`[Diag][MediaRecorder] Calling mediaRecorder.start(100) (after pre-drawing frame 0). Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
+            mediaRecorder.start(100); // Request to start recording with a 100ms timeslice. onstart will confirm.
 
         } catch (error) {
             console.error("[Diag][MediaRecorder] Error during MediaRecorder video generation setup:", error);
