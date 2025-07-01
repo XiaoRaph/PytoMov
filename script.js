@@ -479,18 +479,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            updateStatus('Generate button click validated. Preparing data for FFmpeg...');
-            const logData = {
-                imageName: loadedImage.name || "loaded_image",
-                text: textInput.value,
-                duration: duration,
-                fps: fps,
-                fontSize: fontSizeInput.value,
-                fontFamily: fontFamilyInput.value,
-                textColor: textColorInput.value,
-                bgColor: enableBgColorCheckbox.checked ? bgColorInput.value : "None"
-            };
-            console.log("[Diag] Data for FFmpeg:", logData);
+            updateStatus('Validations passed. Initializing video generation with MediaRecorder...');
+            // const logData = { // This logData was primarily for the old FFmpeg approach
+            //     imageName: loadedImage.name || "loaded_image",
+            //     text: textInput.value,
+            //     duration: duration,
+            //     fps: fps,
+            //     fontSize: fontSizeInput.value,
+            //     fontFamily: fontFamilyInput.value,
+            //     textColor: textColorInput.value,
+            //     bgColor: enableBgColorCheckbox.checked ? bgColorInput.value : "None"
+            // };
+            // console.log("[Diag] Old FFmpeg related logData commented out:", logData);
 
             console.log("[Diag] Calling generateVideoWithMediaRecorder()...");
             generateVideoWithMediaRecorder();
@@ -685,13 +685,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Check for MediaRecorder and canvas.captureStream support
         if (!previewCanvas.captureStream) {
-            updateStatus("Error: Your browser does not support canvas.captureStream(). Cannot generate video.");
-            alert("Error: Browser does not support canvas.captureStream().");
+            const errorMsg = "Error: Your browser does not support canvas.captureStream(). Video generation failed.";
+            console.error("[CRITICAL CAPABILITY CHECK FAILED]", errorMsg, "Unable to proceed.");
+            updateStatus(errorMsg);
+            alert(errorMsg);
             return;
         }
         if (!window.MediaRecorder) {
-            updateStatus("Error: Your browser does not support MediaRecorder API. Cannot generate video.");
-            alert("Error: Browser does not support MediaRecorder API.");
+            const errorMsg = "Error: Your browser does not support MediaRecorder API. Video generation failed.";
+            console.error("[CRITICAL CAPABILITY CHECK FAILED]", errorMsg, "Unable to proceed.");
+            updateStatus(errorMsg);
+            alert(errorMsg);
             return;
         }
 
@@ -706,8 +710,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
 
         if (!supportedMimeType) {
-            updateStatus("Error: No supported WebM MIME type found for MediaRecorder.");
-            alert("Error: No supported WebM MIME type found.");
+            const errorMsg = "Error: No supported WebM MIME type found for MediaRecorder. Video generation failed.";
+            console.error("[CRITICAL CAPABILITY CHECK FAILED]", errorMsg, "Supported types checked:", mimeTypes, "Unable to proceed.");
+            updateStatus(errorMsg);
+            alert(errorMsg);
             return;
         }
         console.log(`[Diag][MediaRecorder] Using MIME type: ${supportedMimeType}`);
