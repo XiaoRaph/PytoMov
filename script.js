@@ -625,6 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         console.log(`[Diag][MediaRecorder] Using MIME type: ${supportedMimeType}`);
+        console.log(`[Diag][MediaRecorder] Inputs: durationSec=${durationSec}, fpsVal=${fpsVal}, numOriginalFrames=${parseInt(originalFramesInput.value, 10) || 0}`);
 
         updateStatus("Starting video generation with MediaRecorder... This may take some time.");
         generateBtn.disabled = true;
@@ -636,7 +637,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const stream = previewCanvas.captureStream(fpsVal);
-            console.log(`[Diag][MediaRecorder] Canvas stream captured with ${fpsVal} FPS.`);
+            console.log(`[Diag][MediaRecorder] Canvas stream captured with ${fpsVal} FPS. Stream state: ${stream.active}`);
+
+            if (stream.getVideoTracks().length > 0) {
+                const videoTrack = stream.getVideoTracks()[0];
+                console.log(`[Diag][MediaRecorder] Video track state: ${videoTrack.readyState}, enabled: ${videoTrack.enabled}, muted: ${videoTrack.muted}`);
+                videoTrack.onended = () => {
+                    console.warn("[Diag][MediaRecorder] Video track ended unexpectedly!");
+                    // If track ends, MediaRecorder might stop.
+                    if (mediaRecorder && mediaRecorder.state === "recording") {
+                        mediaRecorder.stop(); // Attempt to finalize if not already stopping
+                        console.log("[Diag][MediaRecorder] Called mediaRecorder.stop() because video track ended.");
+                    }
+                };
+                videoTrack.onmute = () => console.log("[Diag][MediaRecorder] Video track muted.");
+                videoTrack.onunmute = () => console.log("[Diag][MediaRecorder] Video track unmuted.");
+            } else {
+                console.error("[Diag][MediaRecorder] No video tracks found in captured stream!");
+                throw new Error("Failed to capture video track from canvas.");
+            }
 
             // Options for MediaRecorder. We can experiment with videoBitsPerSecond.
             // A common default is 2.5 Mbps (2500000)
@@ -704,8 +723,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalFrames = Math.floor(durationSec * fpsVal);
             const numOriginalFrames = parseInt(originalFramesInput.value, 10) || 0;
             const currentlySelectedFilter = imageFilterInput.value;
+            console.log(`[Diag][MediaRecorder] Calculated totalFrames: ${totalFrames}, numOriginalFrames from input: ${numOriginalFrames}`);
+
+            // Determine filter for frame 0 (pre-draw)
+            const filterForFrameZero = (numOriginalFrames > 0) ? 'none' : currentlySelectedFilter;
+
+            // --- Pre-draw frame 0 before starting recorder ---
+            console.log(`[Diag][MediaRecorder] Pre-drawing frame 0 with filter: ${filterForFrameZero}`);
+            drawTextOnCanvas(filterForFrameZero);
+            // --- End Pre-draw ---
+
+            currentFrame = 0; // Reset/initialize for the renderLoop, which will now effectively start from frame 1 logic
 
             function renderFrame() {
+                // This function will now be responsible for drawing frames 1 onwards,
+                // or frame 0 if pre-draw wasn't done (though it is).
+                // The currentFrame counter will manage this.
+
+                if (mediaRecorder && mediaRecorder.state !== "recording" && mediaRecorder.state !== "paused") {
+                    console.warn(`[Diag][MediaRecorder] renderFrame called while recorder state is ${mediaRecorder.state}. Stopping rAF.`);
+                    if(renderLoopId) cancelAnimationFrame(renderLoopId);
+                    renderLoopId = null;
+                    return;
+                }
                 if (currentFrame < totalFrames) {
                     let filterForThisFrame = currentlySelectedFilter;
                     if (currentFrame < numOriginalFrames) {
@@ -714,41 +754,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     drawTextOnCanvas(filterForThisFrame); // Update canvas content
 
                     if(currentFrame % fpsVal === 0) { // Update status roughly every second
-                         updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames}`);
+                         updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterForThisFrame})`);
                     }
-                    console.log(`[Diag][MediaRecorder] Rendered frame ${currentFrame + 1}/${totalFrames}`);
+                    // Log the 0-indexed frame being drawn by the renderFrame loop
+                    console.log(`[Diag][MediaRecorder] renderFrame loop: Drawing frame content for index ${currentFrame}. Filter: ${filterForThisFrame}`);
                     currentFrame++;
                     renderLoopId = requestAnimationFrame(renderFrame);
                 } else {
-                    // All conceptual frames have been drawn.
-                    // The stream itself will run for durationSec.
-                    // We stop the recorder after the full duration.
-                    console.log("[Diag][MediaRecorder] All frames drawn to canvas according to calculation.");
+                    // This means the renderFrame loop has completed drawing all 'totalFrames'
+                    console.log(`[Diag][MediaRecorder] renderFrame loop finished after drawing frame index ${currentFrame - 1}. Total frames drawn by loop: ${currentFrame}.`);
                     renderLoopId = null;
                 }
             }
 
-            mediaRecorder.start();
-            console.log("[Diag][MediaRecorder] MediaRecorder started.");
-            updateStatus("Recording in progress...");
+            mediaRecorder.onstart = () => {
+                console.log(`[Diag][MediaRecorder] MediaRecorder.onstart event. State: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
+                updateStatus("Recording in progress...");
+                // currentFrame is 0 at this point. The first call to renderFrame will draw content for frame index 0.
+                renderLoopId = requestAnimationFrame(renderFrame);
+            };
 
-            renderLoopId = requestAnimationFrame(renderFrame); // Start rendering frames to the canvas
+            // Note: Frame 0 content was pre-drawn before this point.
+            console.log(`[Diag][MediaRecorder] Calling mediaRecorder.start() (after pre-drawing frame 0). Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
+            mediaRecorder.start(); // Request to start recording. onstart will confirm.
 
             // Stop recording after the specified duration
-            setTimeout(() => {
-                if (mediaRecorder.state === "recording") {
-                    mediaRecorder.stop();
-                    console.log("[Diag][MediaRecorder] Sent stop() command after duration.");
+            const timeoutId = setTimeout(() => {
+                console.log(`[Diag][MediaRecorder] setTimeout for stop() fired. Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
+                if (mediaRecorder && mediaRecorder.state === "recording") {
+                    console.log("[Diag][MediaRecorder] Calling mediaRecorder.stop() from setTimeout.");
+                    mediaRecorder.stop(); // This should trigger mediaRecorder.onstop
                 }
                 if (renderLoopId) { // Stop rAF loop if it's still somehow running
                     cancelAnimationFrame(renderLoopId);
                     renderLoopId = null;
-                    console.log("[Diag][MediaRecorder] Cleared rAF from timeout, just in case.");
+                    console.log("[Diag][MediaRecorder] Cleared rAF from timeout, as recording is stopping.");
                 }
             }, durationSec * 1000);
+            console.log(`[Diag][MediaRecorder] setTimeout for stop() scheduled for ${durationSec * 1000}ms. ID: ${timeoutId}. Timestamp: ${Date.now()}`);
 
         } catch (error) {
-            console.error("[Diag][MediaRecorder] Error during MediaRecorder video generation:", error);
+            console.error("[Diag][MediaRecorder] Error during MediaRecorder video generation setup:", error);
             updateStatus(`Error: ${error.message || error}`);
             if (renderLoopId) {
                 cancelAnimationFrame(renderLoopId);
