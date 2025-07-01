@@ -717,7 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         console.log(`[Diag][MediaRecorder] Using MIME type: ${supportedMimeType}`);
-        console.log(`[Diag][MediaRecorder] Inputs: durationSec=${durationSec}, fpsVal=${fpsVal}, numOriginalFrames=${parseInt(originalFramesInput.value, 10) || 0}`);
+        console.log(`[Diag][MediaRecorder] Inputs: durationSec=${durationSec}, fpsVal=${fpsVal}`);
 
         updateStatus("Starting video generation with MediaRecorder... This may take some time.");
         generateBtn.disabled = true;
