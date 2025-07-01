@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const enableBgColorCheckbox = document.getElementById('enableBgColor');
     const textPositionInput = document.getElementById('textPositionInput');
     const imageFilterInput = document.getElementById('imageFilterInput');
+    const effectActiveDurationInput = document.getElementById('effectActiveDurationInput'); // New input for effect duration
     // const qualityInput = document.getElementById('qualityInput'); // REMOVED - Whammy specific
 
     const previewArea = document.getElementById('previewArea');
@@ -189,8 +190,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filterToApply === 'invert') {
             for (let i = 0; i < data.length; i += 4) {
                 data[i]     = 255 - data[i];     // Red
+                data[i]     = 255 - data[i];     // Red
                 data[i + 1] = 255 - data[i + 1]; // Green
                 data[i + 2] = 255 - data[i + 2]; // Blue
+                // Alpha (data[i + 3]) remains unchanged
+            }
+        } else if (filterToApply === 'sepia') {
+            // Apply sepia tone
+            // For each pixel (R, G, B, A)
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+
+                // Sepia formula
+                const newR = Math.min(255, (0.393 * r) + (0.769 * g) + (0.189 * b));
+                const newG = Math.min(255, (0.349 * r) + (0.686 * g) + (0.168 * b));
+                const newB = Math.min(255, (0.272 * r) + (0.534 * g) + (0.131 * b));
+
+                data[i]     = newR; // Red
+                data[i + 1] = newG; // Green
+                data[i + 2] = newB; // Blue
                 // Alpha (data[i + 3]) remains unchanged
             }
         }
@@ -722,46 +742,63 @@ document.addEventListener('DOMContentLoaded', () => {
             let currentFrame = 0;
             const totalFrames = Math.floor(durationSec * fpsVal);
             const numOriginalFrames = parseInt(originalFramesInput.value, 10) || 0;
+            const effectActiveDuration = parseFloat(effectActiveDurationInput.value) || 0;
+            const numEffectFrames = Math.floor(effectActiveDuration * fpsVal);
             const currentlySelectedFilter = imageFilterInput.value;
-            console.log(`[Diag][MediaRecorder] Calculated totalFrames: ${totalFrames}, numOriginalFrames from input: ${numOriginalFrames}`);
+
+            console.log(`[Diag][MediaRecorder] Calculated totalFrames: ${totalFrames}`);
+            console.log(`[Diag][MediaRecorder] Initial unfiltered frames (originalFramesInput): ${numOriginalFrames}`);
+            console.log(`[Diag][MediaRecorder] Selected effect active duration (effectActiveDurationInput): ${effectActiveDuration}s, which is ${numEffectFrames} frames.`);
+            console.log(`[Diag][MediaRecorder] Selected filter for effect stage: ${currentlySelectedFilter}`);
 
             // Determine filter for frame 0 (pre-draw)
-            const filterForFrameZero = (numOriginalFrames > 0) ? 'none' : currentlySelectedFilter;
+            let filterForFrameZero;
+            if (numOriginalFrames > 0) {
+                filterForFrameZero = 'none'; // Stage 1: Initial Unfiltered
+            } else if (numEffectFrames > 0) {
+                filterForFrameZero = currentlySelectedFilter; // Stage 2: Selected Effect Active
+            } else {
+                filterForFrameZero = 'none'; // Stage 3: Remaining Unfiltered (or all unfiltered if others are 0)
+            }
 
             // --- Pre-draw frame 0 before starting recorder ---
             console.log(`[Diag][MediaRecorder] Pre-drawing frame 0 with filter: ${filterForFrameZero}`);
             drawTextOnCanvas(filterForFrameZero);
             // --- End Pre-draw ---
 
-            currentFrame = 0; // Reset/initialize for the renderLoop, which will now effectively start from frame 1 logic
+            currentFrame = 0; // Reset/initialize for the renderLoop.
 
             function renderFrame() {
-                // This function will now be responsible for drawing frames 1 onwards,
-                // or frame 0 if pre-draw wasn't done (though it is).
-                // The currentFrame counter will manage this.
-
                 if (mediaRecorder && mediaRecorder.state !== "recording" && mediaRecorder.state !== "paused") {
                     console.warn(`[Diag][MediaRecorder] renderFrame called while recorder state is ${mediaRecorder.state}. Stopping rAF.`);
                     if(renderLoopId) cancelAnimationFrame(renderLoopId);
                     renderLoopId = null;
                     return;
                 }
+
                 if (currentFrame < totalFrames) {
-                    let filterForThisFrame = currentlySelectedFilter;
+                    let filterForThisFrame;
+                    // Determine filter based on current frame index and defined stages
                     if (currentFrame < numOriginalFrames) {
+                        // Stage 1: Initial Unfiltered
+                        filterForThisFrame = 'none';
+                    } else if (currentFrame < numOriginalFrames + numEffectFrames) {
+                        // Stage 2: Selected Effect Active
+                        filterForThisFrame = currentlySelectedFilter;
+                    } else {
+                        // Stage 3: Remaining Unfiltered
                         filterForThisFrame = 'none';
                     }
+
                     drawTextOnCanvas(filterForThisFrame); // Update canvas content
 
                     if(currentFrame % fpsVal === 0) { // Update status roughly every second
                          updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterForThisFrame})`);
                     }
-                    // Log the 0-indexed frame being drawn by the renderFrame loop
                     console.log(`[Diag][MediaRecorder] renderFrame loop: Drawing frame content for index ${currentFrame}. Filter: ${filterForThisFrame}`);
                     currentFrame++;
                     renderLoopId = requestAnimationFrame(renderFrame);
                 } else {
-                    // This means the renderFrame loop has completed drawing all 'totalFrames'
                     console.log(`[Diag][MediaRecorder] renderFrame loop finished after drawing frame index ${currentFrame - 1}. Total frames drawn by loop: ${currentFrame}.`);
                     renderLoopId = null;
                 }
@@ -770,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
             mediaRecorder.onstart = () => {
                 console.log(`[Diag][MediaRecorder] MediaRecorder.onstart event. State: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
                 updateStatus("Recording in progress...");
-                // currentFrame is 0 at this point. The first call to renderFrame will draw content for frame index 0.
+                // currentFrame is 0. The first call to renderFrame will determine filter for frame 0 based on new logic.
                 renderLoopId = requestAnimationFrame(renderFrame);
             };
 
