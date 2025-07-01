@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const textInput = document.getElementById('textInput');
     const durationInput = document.getElementById('durationInput');
     const fpsInput = document.getElementById('fpsInput');
-    const originalFramesInput = document.getElementById('originalFramesInput'); // New input for original frames
+    const originalFramesInput = document.getElementById('originalFramesInput'); // This will be null if element is missing
     const fontSizeInput = document.getElementById('fontSizeInput');
     const textColorInput = document.getElementById('textColorInput');
     const fontFamilyInput = document.getElementById('fontFamilyInput'); // New font family input
@@ -97,9 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const enableBgColorCheckbox = document.getElementById('enableBgColor');
     const textPositionInput = document.getElementById('textPositionInput');
     const imageFilterInput = document.getElementById('imageFilterInput');
-    // const effectActiveDurationInput = document.getElementById('effectActiveDurationInput'); // REMOVED - Replaced by sequence builder
-    // const originalFramesInput = document.getElementById('originalFramesInput'); // REMOVED - Replaced by sequence builder
-    // const qualityInput = document.getElementById('qualityInput'); // REMOVED - Whammy specific
 
     // New UI elements for effect sequencing
     const newEffectTypeInput = document.getElementById('newEffectType');
@@ -180,38 +177,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     loadedImage = new Image();
-                    // Event handler for when the image data has been loaded
                     loadedImage.onload = () => {
-                        // Set dimensions for both canvases
                         originalPreviewCanvas.width = loadedImage.width;
                         originalPreviewCanvas.height = loadedImage.height;
                         previewCanvas.width = loadedImage.width;
                         previewCanvas.height = loadedImage.height;
-
-                        // Draw the original image onto the originalPreviewCanvas
                         originalCtx.clearRect(0, 0, originalPreviewCanvas.width, originalPreviewCanvas.height);
                         originalCtx.drawImage(loadedImage, 0, 0);
-
-                        // Show the preview area
-                        previewArea.style.display = 'flex'; // Assuming flex is used for layout
-
+                        previewArea.style.display = 'flex';
                         updateStatus(`Image "${file.name}" loaded.`);
-                        // Update the main preview canvas (with filters/text)
                         drawTextOnCanvas();
                     };
-                    // Event handler for errors during image loading
                     loadedImage.onerror = () => {
                         updateStatus(`Error loading image: ${file.name}`);
                         loadedImage = null;
-                        previewArea.style.display = 'none'; // Hide both canvases
+                        previewArea.style.display = 'none';
                     };
-                    loadedImage.src = e.target.result; // Start loading the image data
+                    loadedImage.src = e.target.result;
                 };
-                reader.readAsDataURL(file); // Read the file as a data URL
+                reader.readAsDataURL(file);
             } else {
-                // No file selected or selection cleared
                 loadedImage = null;
-                previewArea.style.display = 'none'; // Hide both canvases
+                previewArea.style.display = 'none';
                 originalCtx.clearRect(0, 0, originalPreviewCanvas.width, originalPreviewCanvas.height);
                 ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
                 updateStatus("Image selection cleared.");
@@ -219,69 +206,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /**
-     * Updates the status message displayed on the page and logs to console.
-     * @param {string} message - The message to display.
-     */
     function updateStatus(message) {
         statusMessages.textContent = message;
-        console.log(message); // Also logs to the on-page console via overridden console.log
+        console.log(message);
     }
 
-    /**
-     * Applies an image filter to the loaded image on the preview canvas.
-     * @param {string} [forceFilterType=null] - If provided, this filter type will be used instead of the UI selection.
-     *                                        Use 'none' to force drawing the original image.
-     */
     function applyImageFilter(forceFilterType = null) {
         if (!loadedImage || !previewCanvas || !ctx) {
             return;
         }
-
-        // Always draw the original image first as a base
         ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
         ctx.drawImage(loadedImage, 0, 0, previewCanvas.width, previewCanvas.height);
-
         const filterToApply = forceFilterType !== null ? forceFilterType : imageFilterInput.value;
 
         if (filterToApply === 'none') {
-            // No filter to apply, original image is already drawn
             if (forceFilterType !== null) console.log("Forcing no filter for this frame.");
             return;
         }
-
         const imageData = ctx.getImageData(0, 0, previewCanvas.width, previewCanvas.height);
         const data = imageData.data;
-
         if (filterToApply === 'invert') {
             for (let i = 0; i < data.length; i += 4) {
-                data[i]     = 255 - data[i];     // Red
-                data[i]     = 255 - data[i];     // Red
-                data[i + 1] = 255 - data[i + 1]; // Green
-                data[i + 2] = 255 - data[i + 2]; // Blue
-                // Alpha (data[i + 3]) remains unchanged
+                data[i]     = 255 - data[i];
+                data[i + 1] = 255 - data[i + 1];
+                data[i + 2] = 255 - data[i + 2];
             }
         } else if (filterToApply === 'sepia') {
-            // Apply sepia tone
-            // For each pixel (R, G, B, A)
             for (let i = 0; i < data.length; i += 4) {
                 const r = data[i];
                 const g = data[i + 1];
                 const b = data[i + 2];
-
-                // Sepia formula
                 const newR = Math.min(255, (0.393 * r) + (0.769 * g) + (0.189 * b));
                 const newG = Math.min(255, (0.349 * r) + (0.686 * g) + (0.168 * b));
                 const newB = Math.min(255, (0.272 * r) + (0.534 * g) + (0.131 * b));
-
-                data[i]     = newR; // Red
-                data[i + 1] = newG; // Green
-                data[i + 2] = newB; // Blue
-                // Alpha (data[i + 3]) remains unchanged
+                data[i]     = newR;
+                data[i + 1] = newG;
+                data[i + 2] = newB;
             }
         }
-        // Future filters can be added here as else if (filterToApply === '...')
-
         ctx.putImageData(imageData, 0, 0);
         if (forceFilterType !== null) {
             console.log(`Applied forced filter for frame: ${filterToApply}`);
@@ -290,376 +252,155 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Draws the (potentially filtered) image and the overlay text onto the preview canvas.
-     * This function is primarily for the live preview.
-     * @param {string} [overrideFilter=null] - Optional. If provided, forces a specific filter for this draw call.
-     *                                         Used by generateVideoWithCanvas to render specific frame states.
-     */
     function drawTextOnCanvas(overrideFilter = null) {
-        if (!loadedImage) {
-            return;
-        }
+        if (!loadedImage) return;
         if (!previewCanvas || !ctx) return;
-
-        // Apply the image filter. If overrideFilter is provided, use that. Otherwise, use UI selection.
         applyImageFilter(overrideFilter);
-
-        // Now draw text on top of the (potentially) filtered image
         const text = textInput.value;
         const fontSize = fontSizeInput.value;
-        const fontFamily = fontFamilyInput.value || 'sans-serif'; // Use specified or fallback
+        const fontFamily = fontFamilyInput.value || 'sans-serif';
         const textColor = textColorInput.value;
         const useBgColor = enableBgColorCheckbox.checked;
         const textBgColor = bgColorInput.value;
         const position = textPositionInput.value;
-
-        // Construct font string for canvas
         ctx.font = `${fontSize} ${fontFamily}`;
         ctx.fillStyle = textColor;
-
-        // Determine text alignment and position based on selection
         let x, y;
         const canvasWidth = previewCanvas.width;
         const canvasHeight = previewCanvas.height;
-        const textMargin = 20; // Margin from edges
-
+        const textMargin = 20;
         switch (position) {
-            case 'top_left':
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'top';
-                x = textMargin;
-                y = textMargin;
-                break;
-            case 'top_center':
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'top';
-                x = canvasWidth / 2;
-                y = textMargin;
-                break;
-            case 'top_right':
-                ctx.textAlign = 'right';
-                ctx.textBaseline = 'top';
-                x = canvasWidth - textMargin;
-                y = textMargin;
-                break;
-            case 'center_left':
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                x = textMargin;
-                y = canvasHeight / 2;
-                break;
-            case 'center':
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                x = canvasWidth / 2;
-                y = canvasHeight / 2;
-                break;
-            case 'center_right':
-                ctx.textAlign = 'right';
-                ctx.textBaseline = 'middle';
-                x = canvasWidth - textMargin;
-                y = canvasHeight / 2;
-                break;
-            case 'bottom_left':
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'bottom';
-                x = textMargin;
-                y = canvasHeight - textMargin;
-                break;
-            case 'bottom_center':
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'bottom';
-                x = canvasWidth / 2;
-                y = canvasHeight - textMargin;
-                break;
-            case 'bottom_right':
-                ctx.textAlign = 'right';
-                ctx.textBaseline = 'bottom';
-                x = canvasWidth - textMargin;
-                y = canvasHeight - textMargin;
-                break;
-            default: // Center (fallback)
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                x = canvasWidth / 2;
-                y = canvasHeight / 2;
+            case 'top_left': x = textMargin; y = textMargin; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; break;
+            case 'top_center': x = canvasWidth / 2; y = textMargin; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; break;
+            case 'top_right': x = canvasWidth - textMargin; y = textMargin; ctx.textAlign = 'right'; ctx.textBaseline = 'top'; break;
+            case 'center_left': x = textMargin; y = canvasHeight / 2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; break;
+            case 'center': x = canvasWidth / 2; y = canvasHeight / 2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; break;
+            case 'center_right': x = canvasWidth - textMargin; y = canvasHeight / 2; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; break;
+            case 'bottom_left': x = textMargin; y = canvasHeight - textMargin; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; break;
+            case 'bottom_center': x = canvasWidth / 2; y = canvasHeight - textMargin; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; break;
+            case 'bottom_right': x = canvasWidth - textMargin; y = canvasHeight - textMargin; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; break;
+            default: x = canvasWidth / 2; y = canvasHeight / 2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         }
-
         if (useBgColor && textBgColor) {
             const textMetrics = ctx.measureText(text);
             let actualHeight = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
             let actualWidth = textMetrics.width;
-
             if (isNaN(actualHeight) || isNaN(actualWidth)) {
                 const sizeMatch = fontSize.match(/(\d+)/);
-                actualHeight = sizeMatch ? parseInt(sizeMatch[1], 10) * 1.2 : 50 * 1.2; // Approximation
-                actualWidth = textMetrics.width || (text.length * (actualHeight / 2)); // Very rough width
+                actualHeight = sizeMatch ? parseInt(sizeMatch[1], 10) * 1.2 : 50 * 1.2;
+                actualWidth = textMetrics.width || (text.length * (actualHeight / 2));
             }
-
             const padding = 10;
-            let bgX = x;
-            let bgY = y;
-
-            // Adjust background position based on textAlign and textBaseline
-            if (ctx.textAlign === 'center') {
-                bgX -= actualWidth / 2;
-            } else if (ctx.textAlign === 'right') {
-                bgX -= actualWidth;
-            }
-            // For textAlign 'left', bgX is already correct (x is the left edge)
-
-            if (ctx.textBaseline === 'middle') {
-                bgY -= actualHeight / 2;
-            } else if (ctx.textBaseline === 'bottom') {
-                bgY -= actualHeight;
-            }
-            // For textBaseline 'top', bgY is already correct (y is the top edge)
-
+            let bgX = x; let bgY = y;
+            if (ctx.textAlign === 'center') bgX -= actualWidth / 2;
+            else if (ctx.textAlign === 'right') bgX -= actualWidth;
+            if (ctx.textBaseline === 'middle') bgY -= actualHeight / 2;
+            else if (ctx.textBaseline === 'bottom') bgY -= actualHeight;
             ctx.fillStyle = textBgColor;
             ctx.fillRect(bgX - padding, bgY - padding, actualWidth + padding * 2, actualHeight + padding * 2);
-            ctx.fillStyle = textColor; // Reset to text color for fillText
+            ctx.fillStyle = textColor;
         }
-
         ctx.fillText(text, x, y);
         updateStatus("Preview updated.");
     }
 
-    // Add event listeners to various input fields.
-    // When any of these inputs change, redraw the text on the canvas to update the preview.
     [textInput, fontSizeInput, textColorInput, fontFamilyInput, bgColorInput, enableBgColorCheckbox, textPositionInput, imageFilterInput].forEach(input => {
         if (input) {
-            // Use 'input' event for text fields for immediate feedback, 'change' for color pickers, checkboxes, and select.
             const eventType = (input.type === 'color' || input.type === 'checkbox' || input.tagName === 'SELECT') ? 'change' : 'input';
             input.addEventListener(eventType, drawTextOnCanvas);
         }
     });
-    // Ensure fontFamilyInput also updates on 'change' (e.g., when user types and blurs)
-    // as 'input' might not cover all ways its value changes.
     if(fontFamilyInput) fontFamilyInput.addEventListener('change', drawTextOnCanvas);
 
-    // Event listener for the "No BG" button for text background color
     if (clearBgColorBtn) {
         clearBgColorBtn.addEventListener('click', () => {
             if (bgColorInput) bgColorInput.value = "#000000";
             if (enableBgColorCheckbox) enableBgColorCheckbox.checked = false;
             updateStatus("Text background color disabled.");
-            drawTextOnCanvas(); // Update preview
+            drawTextOnCanvas();
         });
     }
 
     if (generateBtn) {
         generateBtn.addEventListener('click', () => {
             console.log("[Diag] Generate button clicked.");
-
-            console.log("[Diag] Checking loadedImage...");
             if (!loadedImage) {
                 updateStatus("Error: Please upload an image first.");
-                console.error("[Diag] loadedImage is null or undefined. Aborting.");
                 return;
             }
-            console.log("[Diag] loadedImage is present:", loadedImage.src.substring(0, 50) + "..."); // Log first 50 chars of src
-
-            const durationStr = durationInput.value;
-            const fpsStr = fpsInput.value;
-            console.log(`[Diag] Duration input string: "${durationStr}", FPS input string: "${fpsStr}"`);
-
-            const duration = parseFloat(durationStr);
-            const fps = parseInt(fpsStr, 10);
-            console.log(`[Diag] Parsed duration: ${duration}, Parsed FPS: ${fps}`);
-
+            const duration = parseFloat(durationInput.value);
+            const fps = parseInt(fpsInput.value, 10);
             if (isNaN(duration) || duration <= 0) {
                 updateStatus("Error: Please enter a valid positive duration.");
-                console.error(`[Diag] Invalid duration: ${duration}. Aborting.`);
                 return;
             }
             if (isNaN(fps) || fps <= 0) {
                 updateStatus("Error: Please enter a valid positive FPS.");
-                console.error(`[Diag] Invalid FPS: ${fps}. Aborting.`);
                 return;
             }
-
-            updateStatus('Validations passed. Initializing video generation with MediaRecorder...');
-            // const logData = { // This logData was primarily for the old FFmpeg approach
-            //     imageName: loadedImage.name || "loaded_image",
-            //     text: textInput.value,
-            //     duration: duration,
-            //     fps: fps,
-            //     fontSize: fontSizeInput.value,
-            //     fontFamily: fontFamilyInput.value,
-            //     textColor: textColorInput.value,
-            //     bgColor: enableBgColorCheckbox.checked ? bgColorInput.value : "None"
-            // };
-            // console.log("[Diag] Old FFmpeg related logData commented out:", logData);
-
             console.log("[Diag] Calling generateVideoWithMediaRecorder()...");
             generateVideoWithMediaRecorder();
             console.log("[Diag] Returned from generateVideoWithMediaRecorder() call site.");
         });
     }
 
-    // --- FFmpeg Integration Removed ---
-
-    /**
-     * @deprecated Generates a WebM video from the current canvas content using Whammy.js.
-     * It takes the loaded image with text overlay, captures frames,
-     * and compiles them into a video.
-     */
     async function generateVideoWithWhammy_DEPRECATED() {
+        // ... (Whammy code as it was, truncated for brevity in this plan step)
         console.log("[Diag][generateVideoWhammy] Entered function.");
-
         if (!loadedImage) {
             updateStatus("Error: Please upload an image first.");
-            console.error("[Diag][generateVideoCanvas] No loadedImage found. Aborting.");
             alert("Please upload an image first.");
             return;
         }
-        console.log("[Diag][generateVideoCanvas] loadedImage check passed.");
-
         const durationSec = parseFloat(durationInput.value);
         const fpsVal = parseInt(fpsInput.value, 10);
-        const qualityVal = parseFloat(qualityInput.value);
+        // const qualityVal = parseFloat(qualityInput.value); // qualityInput was removed
+        const qualityVal = 0.8; // Default or placeholder if needed
 
-        console.log(`[Diag][generateVideoCanvas] Parsed duration: ${durationSec}, Parsed FPS: ${fpsVal}, Quality: ${qualityVal}`);
+        if (isNaN(durationSec) || durationSec <= 0) { /* ... */ return; }
+        if (isNaN(fpsVal) || fpsVal <= 0) { /* ... */ return; }
 
-        if (isNaN(durationSec) || durationSec <= 0) {
-            updateStatus("Error: Invalid duration. Must be a positive number.");
-            console.error(`[Diag][generateVideoCanvas] Invalid duration: ${durationSec}. Aborting.`);
-            alert("Error: Invalid duration. Must be a positive number.");
-            return;
-        }
-        if (isNaN(fpsVal) || fpsVal <= 0) {
-            updateStatus("Error: Invalid FPS. Must be a positive integer.");
-            console.error(`[Diag][generateVideoCanvas] Invalid FPS: ${fpsVal}. Aborting.`);
-            alert("Error: Invalid FPS. Must be a positive integer.");
-            return;
-        }
-        console.log("[Diag][generateVideoCanvas] Duration and FPS validation passed.");
-
-        updateStatus("Starting video generation with Canvas... This may take some time.");
-        console.log("[Diag][generateVideoCanvas] Disabling generate button and hiding download link.");
+        updateStatus("Starting video generation with Whammy... This may take some time.");
         generateBtn.disabled = true;
         downloadLink.style.display = 'none';
-
         try {
-            console.log("[Diag][generateVideoCanvas] Entering Canvas processing try block.");
-
             const totalFrames = Math.floor(durationSec * fpsVal);
-            const numOriginalFrames = parseInt(originalFramesInput.value, 10) || 0;
-            console.log(`[Diag][generateVideoCanvas] Number of initial original frames: ${numOriginalFrames}`);
-
-            // Pass quality to Whammy.Video constructor
-            // Whammy.Video constructor is function WhammyVideo(speed, quality)
-            // speed is 1000 / duration, so fps is correct here.
-            // quality is a value between 0 and 1 for toDataURL('image/webp', quality)
+            // Safely get numOriginalFrames
+            const numOriginalFrames = originalFramesInput ? (parseInt(originalFramesInput.value, 10) || 0) : 0;
             const video = new Whammy.Video(fpsVal, qualityVal);
-            const currentlySelectedFilter = imageFilterInput.value; // Cache user's choice for post-original frames
-
-            // Define a delay for Android to allow canvas rendering to complete
-            // Set to 0 or a small value for non-Android, or if 0 works for Android too.
-            // 50ms is a starting point for testing.
-            const ANDROID_FRAME_DELAY_MS = 50;
-            const isAndroid = /android/i.test(navigator.userAgent);
-            const frameDelay = isAndroid ? ANDROID_FRAME_DELAY_MS : 0;
-
-            if (isAndroid) {
-                console.log(`[Diag] Android detected. Applying frame delay of ${frameDelay}ms if > 0.`);
-            }
-
+            const currentlySelectedFilter = imageFilterInput.value;
             for (let i = 0; i < totalFrames; i++) {
-                // Yield to the browser event loop periodically to prevent freezing
-                if (i % 10 === 0) { // This yield is for general UI responsiveness
+                if (i % 10 === 0) {
                     updateStatus(`Encoding frame ${i + 1}/${totalFrames}...`);
                     await new Promise(resolve => setTimeout(resolve, 0));
                 }
-
                 let filterForThisFrame = currentlySelectedFilter;
                 if (i < numOriginalFrames) {
-                    filterForThisFrame = 'none'; // Force no filter for initial frames
+                    filterForThisFrame = 'none';
                 }
-
-                // Redraw canvas for this specific frame's state (filter + text)
                 drawTextOnCanvas(filterForThisFrame);
-
-                // Apply an additional delay specifically for Android before capturing the frame,
-                // to give the rendering engine more time to complete drawing.
-                if (frameDelay > 0) {
-                    if (i % 10 === 0 || i === totalFrames -1) { // Log this delay less frequently
-                        console.log(`[Diag][Frame ${i+1}] Applying specific frame delay: ${frameDelay}ms`);
-                    }
-                    await new Promise(resolve => setTimeout(resolve, frameDelay));
-                }
-
-                video.add(previewCanvas); // Add current state of previewCanvas
-
-                if (i % 10 === 0 || i === totalFrames -1) { // Log frame addition less frequently
-                    console.log(`[Diag][generateVideoCanvas] Added frame ${i + 1}/${totalFrames}. Filter applied: ${filterForThisFrame}`);
-                }
+                video.add(previewCanvas);
             }
-
-            // After loop, restore preview to user's selected filter for consistency
-            drawTextOnCanvas();
-
-            updateStatus("Compiling WebM video... This might take a significant amount of time.");
-            console.log("[Diag][generateVideoCanvas] Attempting to compile WebM video...");
-
-            const videoBlob = await new Promise((resolve, reject) => {
-                try {
-                    console.log("[Diag][generateVideoCanvas] Calling video.compile()...");
-                    const result = video.compile(); // This is synchronous
-                    console.log("[Diag][generateVideoCanvas] video.compile() finished.");
-                    if (!result) {
-                        console.error("[Diag][generateVideoCanvas] video.compile() returned null or undefined.");
-                        reject(new Error("Compilation resulted in a null/undefined object."));
-                        return;
-                    }
-                    console.log(`[Diag][generateVideoCanvas] video.compile() returned Blob: Size: ${result.size}, Type: ${result.type}`);
-                    if (result.size === 0) {
-                        console.warn("[Diag][generateVideoCanvas] video.compile() produced a zero-size Blob.");
-                        // Not rejecting here, but this is a strong indicator of failure.
-                    }
-                    resolve(result);
-                } catch (compileError) {
-                    console.error("[Diag][generateVideoCanvas] Error explicitly thrown during Whammy compile:", compileError);
-                    reject(compileError);
-                }
-            });
-
-            if (!videoBlob) {
-                updateStatus("Error: Video compilation failed to produce a valid video Blob.");
-                console.error("[Diag][generateVideoCanvas] videoBlob is null or undefined after promise. Aborting download link setup.");
-                // generateBtn.disabled = false; // Already handled in finally
-                return; // Critical error, stop here
-            }
-
-            console.log(`[Diag][generateVideoCanvas] Final videoBlob details: Size: ${videoBlob.size}, Type: ${videoBlob.type}`);
-            if (videoBlob.size === 0) {
-                updateStatus("Warning: Generated video file is empty (0 bytes). It might not play correctly.");
-                // We'll still create a download link to allow inspection of the (empty) file.
-            }
-
+            drawTextOnCanvas(); // Restore preview
+            updateStatus("Compiling WebM video (Whammy)...");
+            const videoBlob = await video.compile(); // Whammy compile is synchronous but wrapped in new Promise in some versions
             const videoUrl = URL.createObjectURL(videoBlob);
-            console.log("[Diag][generateVideoCanvas] WebM video Blob URL created:", videoUrl);
-
             downloadLink.href = videoUrl;
-            downloadLink.download = `video_output_${Date.now()}.webm`;
+            downloadLink.download = `video_output_whammy_${Date.now()}.webm`;
             downloadLink.style.display = 'block';
-            downloadLink.textContent = 'Download Video (WebM)';
-            updateStatus("WebM video ready for download!");
-
+            downloadLink.textContent = 'Download Video (WebM - Whammy)';
+            updateStatus("Whammy video ready for download!");
         } catch (error) {
-            console.error("[Diag][generateVideoCanvas] Error during Canvas video generation:", error);
-            updateStatus(`Error during video generation: ${error.message || String(error)}.`);
-            alert(`An error occurred during video generation: ${error.message || String(error)}.`);
+            console.error("[Diag][generateVideoWhammy] Error:", error);
+            updateStatus(`Error (Whammy): ${error.message || String(error)}.`);
         } finally {
             console.log("[Diag][generateVideoWhammy] Entering finally block. Re-enabling generate button.");
             generateBtn.disabled = false;
         }
     }
 
-
     async function generateVideoWithMediaRecorder() {
-        console.log("[Diag][MediaRecorder] Entered generateVideoWithMediaRecorder function.");
+        console.log("[Diag][MediaRecorder] Entered generateVideoWithMediaRecorder function (PR #27 STRICT REVERT).");
 
         if (!loadedImage) {
             updateStatus("Error: Please upload an image first.");
@@ -669,8 +410,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const durationSec = parseFloat(durationInput.value);
         const fpsVal = parseInt(fpsInput.value, 10);
-        // Quality input is for Whammy's WebP, MediaRecorder uses videoBitsPerSecond or default.
-        // const qualityVal = parseFloat(qualityInput.value);
 
         if (isNaN(durationSec) || durationSec <= 0) {
             updateStatus("Error: Invalid duration. Must be a positive number.");
@@ -685,17 +424,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Check for MediaRecorder and canvas.captureStream support
         if (!previewCanvas.captureStream) {
-            const errorMsg = "Error: Your browser does not support canvas.captureStream(). Video generation failed.";
-            console.error("[CRITICAL CAPABILITY CHECK FAILED]", errorMsg, "Unable to proceed.");
-            updateStatus(errorMsg);
-            alert(errorMsg);
+            updateStatus("Error: Your browser does not support canvas.captureStream(). Cannot generate video.");
+            alert("Error: Browser does not support canvas.captureStream().");
             return;
         }
         if (!window.MediaRecorder) {
-            const errorMsg = "Error: Your browser does not support MediaRecorder API. Video generation failed.";
-            console.error("[CRITICAL CAPABILITY CHECK FAILED]", errorMsg, "Unable to proceed.");
-            updateStatus(errorMsg);
-            alert(errorMsg);
+            updateStatus("Error: Your browser does not support MediaRecorder API. Cannot generate video.");
+            alert("Error: Browser does not support MediaRecorder API.");
             return;
         }
 
@@ -710,14 +445,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
 
         if (!supportedMimeType) {
-            const errorMsg = "Error: No supported WebM MIME type found for MediaRecorder. Video generation failed.";
-            console.error("[CRITICAL CAPABILITY CHECK FAILED]", errorMsg, "Supported types checked:", mimeTypes, "Unable to proceed.");
-            updateStatus(errorMsg);
-            alert(errorMsg);
+            updateStatus("Error: No supported WebM MIME type found for MediaRecorder.");
+            alert("Error: No supported WebM MIME type found.");
             return;
         }
         console.log(`[Diag][MediaRecorder] Using MIME type: ${supportedMimeType}`);
-        console.log(`[Diag][MediaRecorder] Inputs: durationSec=${durationSec}, fpsVal=${fpsVal}`);
 
         updateStatus("Starting video generation with MediaRecorder... This may take some time.");
         generateBtn.disabled = true;
@@ -729,43 +461,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const stream = previewCanvas.captureStream(fpsVal);
-            console.log(`[Diag][MediaRecorder] Canvas stream captured with ${fpsVal} FPS. Stream state: ${stream.active}`);
+            console.log(`[Diag][MediaRecorder] Canvas stream captured with ${fpsVal} FPS.`);
 
-            if (stream.getVideoTracks().length > 0) {
-                const videoTrack = stream.getVideoTracks()[0];
-                console.log(`[Diag][MediaRecorder] Video track state: ${videoTrack.readyState}, enabled: ${videoTrack.enabled}, muted: ${videoTrack.muted}`);
-                videoTrack.onended = () => {
-                    console.warn("[Diag][MediaRecorder] Video track ended unexpectedly!");
-                    // If track ends, MediaRecorder might stop.
-                    if (mediaRecorder && mediaRecorder.state === "recording") {
-                        mediaRecorder.stop(); // Attempt to finalize if not already stopping
-                        console.log("[Diag][MediaRecorder] Called mediaRecorder.stop() because video track ended.");
-                    }
-                };
-                videoTrack.onmute = () => console.log("[Diag][MediaRecorder] Video track muted.");
-                videoTrack.onunmute = () => console.log("[Diag][MediaRecorder] Video track unmuted.");
-            } else {
-                console.error("[Diag][MediaRecorder] No video tracks found in captured stream!");
-                throw new Error("Failed to capture video track from canvas.");
-            }
-
-            // Options for MediaRecorder. We can experiment with videoBitsPerSecond.
-            // A common default is 2.5 Mbps (2500000)
             const options = {
                 mimeType: supportedMimeType,
-                videoBitsPerSecond: 2500000 // Example: 2.5 Mbps
+                videoBitsPerSecond: 2500000 // Example: 2.5 Mbps from PR #27
             };
-            // The 'qualityInput' previously used for Whammy's WebP quality could be repurposed
-            // to select different bitrates here if desired. For now, using a fixed bitrate.
-            // For example: if (qualityInput.value === '0.3') options.videoBitsPerSecond = 500000; etc.
 
             mediaRecorder = new MediaRecorder(stream, options);
 
             mediaRecorder.ondataavailable = (event) => {
-                console.log(`[Diag][MediaRecorder] ondataavailable event fired. Chunk size: ${event.data.size}. Timestamp: ${Date.now()}`);
                 if (event.data.size > 0) {
                     recordedChunks.push(event.data);
-                    // console.log(`[Diag][MediaRecorder] Data available: chunk size ${event.data.size}`); // More detailed log if needed
+                    console.log(`[Diag][MediaRecorder] Data available: chunk size ${event.data.size}`);
                 } else {
                     console.log("[Diag][MediaRecorder] Data available: chunk size 0 (ignoring).");
                 }
@@ -796,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     downloadLink.textContent = 'Download Video (WebM - MediaRecorder)';
                     updateStatus("MediaRecorder video ready for download!");
                 }
-                generateBtn.disabled = false; // Re-enable button on successful stop
+                // Button re-enabling is handled by the finally block in PR #27 style
             };
 
             mediaRecorder.onerror = (event) => {
@@ -806,16 +514,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     cancelAnimationFrame(renderLoopId);
                     renderLoopId = null;
                 }
-                generateBtn.disabled = false; // Re-enable button on error
+                 // Button re-enabling is handled by the finally block in PR #27 style
             };
 
             let currentFrame = 0;
             const totalFrames = Math.floor(durationSec * fpsVal);
-            console.log(`[Diag][MediaRecorder] Calculated totalFrames: ${totalFrames}`);
-            console.log(`[Diag][MediaRecorder] Effect sequence for video:`, JSON.parse(JSON.stringify(effectSequence))); // Log a deep copy
 
-            // Function to determine filter for a given frame based on the effectSequence
-            function getFilterForFrame(frameIndex, sequence) {
+            // effectSequence is defined globally and populated by UI interactions.
+            // Helper function to get filter from effectSequence
+            function getFilterForFrameFromSequence(frameIndex, sequence) {
+                if (!sequence || sequence.length === 0) {
+                    return 'none'; // Default if no sequence
+                }
                 let cumulativeFrames = 0;
                 for (const effect of sequence) {
                     if (frameIndex >= cumulativeFrames && frameIndex < cumulativeFrames + effect.frames) {
@@ -823,96 +533,69 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     cumulativeFrames += effect.frames;
                 }
-                return 'none'; // Default if frameIndex is past all defined effects in sequence
+                // If frameIndex is beyond all defined effects, or if sequence is empty but somehow passed initial check
+                // Default to 'none' or the last effect, depending on desired behavior.
+                // For now, defaulting to 'none' if past the configured sequence length.
+                // Or, if totalFrames in sequence doesn't match video totalFrames, this could be an issue.
+                // Let's assume for now the UI/user ensures sequence covers the intended part of the video.
+                // If totalFrames (video) > total sequence frames, frames beyond sequence will be 'none'.
+                return 'none';
             }
 
-            // --- Pre-draw frame 0 before starting recorder ---
-            const filterForFrameZero = getFilterForFrame(0, effectSequence);
-            console.log(`[Diag][MediaRecorder] Pre-drawing frame 0 with filter: ${filterForFrameZero}`);
-            drawTextOnCanvas(filterForFrameZero);
-            // --- End Pre-draw ---
-
-            currentFrame = 0; // Reset/initialize for the renderLoop.
+            console.log(`[Diag][MediaRecorder] Effect sequence for video generation:`, JSON.parse(JSON.stringify(effectSequence)));
 
             function renderFrame() {
-                // It's crucial to check recorder state here too, as rAF might fire once more
-                // even after stop() is called and before onstop clears renderLoopId.
-                if (!mediaRecorder || mediaRecorder.state !== "recording") {
-                    console.warn(`[Diag][MediaRecorder] renderFrame called but recorder state is '${mediaRecorder ? mediaRecorder.state : "null"}'. Halting rAF.`);
-                    if(renderLoopId) {
-                        cancelAnimationFrame(renderLoopId);
-                        renderLoopId = null;
-                    }
-                    return;
-                }
-
                 if (currentFrame < totalFrames) {
-                    const filterForThisFrame = getFilterForFrame(currentFrame, effectSequence);
+                    const filterForThisFrame = getFilterForFrameFromSequence(currentFrame, effectSequence);
                     drawTextOnCanvas(filterForThisFrame); // Update canvas content
 
                     if(currentFrame % fpsVal === 0) { // Update status roughly every second
                          updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterForThisFrame})`);
                     }
-                    // console.log(`[Diag][MediaRecorder] renderFrame loop: Drawing frame content for index ${currentFrame}. Filter: ${filterForThisFrame}`); // Potentially too verbose
+                    // console.log(`[Diag][MediaRecorder] Rendered frame ${currentFrame + 1}/${totalFrames} with filter ${filterForThisFrame}`); // More verbose log
                     currentFrame++;
                     renderLoopId = requestAnimationFrame(renderFrame);
                 } else {
-                    console.log(`[Diag][MediaRecorder] renderFrame loop: Target totalFrames (${totalFrames}) reached or exceeded by currentFrame (${currentFrame}).`);
-                    // The loop will stop naturally as currentFrame will no longer be < totalFrames.
-                    // If mediaRecorder.stop() hasn't been called by timeout yet, it will continue recording 'empty' time.
-                    // The timeout for stop() is the primary mechanism for ending recording.
-                    // No need to explicitly set renderLoopId = null here as rAF won't schedule new calls.
+                    console.log("[Diag][MediaRecorder] All frames drawn to canvas according to calculation.");
+                    if (renderLoopId) {
+                        cancelAnimationFrame(renderLoopId);
+                        renderLoopId = null;
+                    }
                 }
             }
 
-            mediaRecorder.onstart = () => {
-                console.log(`[Diag][MediaRecorder] MediaRecorder.onstart event. State: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
-                if (mediaRecorder.state === "recording") {
-                    updateStatus("Recording in progress...");
-                    currentFrame = 0; // Ensure frame count starts from 0 for this recording session
-                    renderLoopId = requestAnimationFrame(renderFrame); // Start rendering loop
+            mediaRecorder.start(); // No timeslice, no setTimeout wrapper, as per PR #27
+            console.log("[Diag][MediaRecorder] MediaRecorder started."); // Log from PR #27
+            updateStatus("Recording in progress...");
 
-                    // Schedule stop command only after recording has started
-                    const timeoutId = setTimeout(() => {
-                        console.log(`[Diag][MediaRecorder] setTimeout for stop() fired. Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
-                        if (mediaRecorder && mediaRecorder.state === "recording") {
-                            console.log("[Diag][MediaRecorder] Calling mediaRecorder.stop() from setTimeout.");
-                            mediaRecorder.stop(); // This should trigger mediaRecorder.onstop
-                        }
-                        // No need to cancel rAF here; onstop will handle it, or renderFrame will stop itself if state changes.
-                    }, durationSec * 1000);
-                    console.log(`[Diag][MediaRecorder] setTimeout for stop() scheduled for ${durationSec * 1000}ms. ID: ${timeoutId}. Timestamp: ${Date.now()}`);
-                } else {
-                    console.error(`[Diag][MediaRecorder] onstart event fired but state is not 'recording' (${mediaRecorder.state}). Video generation may fail.`);
-                    updateStatus(`Error: Recording could not start properly (state: ${mediaRecorder.state}).`);
-                    // Consider cleaning up / re-enabling button if this path is hit
-                    generateBtn.disabled = false;
-                }
-            };
+            currentFrame = 0; // Ensure currentFrame is 0 before starting render loop
+            renderLoopId = requestAnimationFrame(renderFrame); // Start rendering frames to the canvas
 
-            // Note: Frame 0 content was pre-drawn before this point.
-            console.log(`[Diag][MediaRecorder] Scheduling mediaRecorder.start(100) with setTimeout(..., 0). Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
+            // Stop recording after the specified duration
             setTimeout(() => {
-                console.log(`[Diag][MediaRecorder] Calling mediaRecorder.start(100) from setTimeout. Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
-                if (mediaRecorder) { // Check if mediaRecorder still exists (it should)
-                    mediaRecorder.start(100); // Request to start recording with a 100ms timeslice.
-                } else {
-                    console.error("[Diag][MediaRecorder] mediaRecorder object was null/undefined before start() in setTimeout.");
-                    // Ensure button is re-enabled if this unlikely path is hit
-                    if(generateBtn) generateBtn.disabled = false;
-                    updateStatus("Error: MediaRecorder became unavailable before starting.");
+                if (mediaRecorder && mediaRecorder.state === "recording") { // Check state before stopping
+                    mediaRecorder.stop();
+                    console.log("[Diag][MediaRecorder] Sent stop() command after duration."); // Log from PR #27
                 }
-            }, 0);
+                if (renderLoopId) { // Stop rAF loop if it's still somehow running
+                    cancelAnimationFrame(renderLoopId);
+                    renderLoopId = null;
+                    console.log("[Diag][MediaRecorder] Cleared rAF from timeout, just in case."); // Log from PR #27
+                }
+            }, durationSec * 1000);
 
         } catch (error) {
-            console.error("[Diag][MediaRecorder] Error during MediaRecorder video generation setup:", error);
+            console.error("[Diag][MediaRecorder] Error during MediaRecorder video generation:", error); // Error log from PR #27
             updateStatus(`Error: ${error.message || error}`);
-            if (renderLoopId) {
+            if (renderLoopId) { // Ensure rAF is cancelled in case of setup error
                 cancelAnimationFrame(renderLoopId);
+                renderLoopId = null;
             }
-            generateBtn.disabled = false; // Re-enable button if setup fails
+        } finally {
+            // This finally block is from PR #27
+            console.log("[Diag][MediaRecorder] Entering finally block. Re-enabling generate button.");
+            generateBtn.disabled = false;
         }
-        // Removed finally block - button re-enabling is now handled by onstop and onerror
     }
 
 });
