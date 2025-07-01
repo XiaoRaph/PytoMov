@@ -891,8 +891,18 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             // Note: Frame 0 content was pre-drawn before this point.
-            console.log(`[Diag][MediaRecorder] Calling mediaRecorder.start(100) (after pre-drawing frame 0). Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
-            mediaRecorder.start(100); // Request to start recording with a 100ms timeslice. onstart will confirm.
+            console.log(`[Diag][MediaRecorder] Scheduling mediaRecorder.start(100) with setTimeout(..., 0). Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
+            setTimeout(() => {
+                console.log(`[Diag][MediaRecorder] Calling mediaRecorder.start(100) from setTimeout. Current state: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
+                if (mediaRecorder) { // Check if mediaRecorder still exists (it should)
+                    mediaRecorder.start(100); // Request to start recording with a 100ms timeslice.
+                } else {
+                    console.error("[Diag][MediaRecorder] mediaRecorder object was null/undefined before start() in setTimeout.");
+                    // Ensure button is re-enabled if this unlikely path is hit
+                    if(generateBtn) generateBtn.disabled = false;
+                    updateStatus("Error: MediaRecorder became unavailable before starting.");
+                }
+            }, 0);
 
         } catch (error) {
             console.error("[Diag][MediaRecorder] Error during MediaRecorder video generation setup:", error);
