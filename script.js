@@ -469,12 +469,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const video = new Whammy.Video(fpsVal, qualityVal);
             const currentlySelectedFilter = imageFilterInput.value; // Cache user's choice for post-original frames
 
+            // Define a delay for Android to allow canvas rendering to complete
+            // Set to 0 or a small value for non-Android, or if 0 works for Android too.
+            // 50ms is a starting point for testing.
+            const ANDROID_FRAME_DELAY_MS = 50;
+            const isAndroid = /android/i.test(navigator.userAgent);
+            const frameDelay = isAndroid ? ANDROID_FRAME_DELAY_MS : 0;
+
+            if (isAndroid) {
+                console.log(`[Diag] Android detected. Applying frame delay of ${frameDelay}ms if > 0.`);
+            }
+
             for (let i = 0; i < totalFrames; i++) {
                 // Yield to the browser event loop periodically to prevent freezing
-                // Adjust the frequency of yielding as needed. Every 10 frames might be a good start.
-                if (i % 10 === 0) {
+                if (i % 10 === 0) { // This yield is for general UI responsiveness
                     updateStatus(`Encoding frame ${i + 1}/${totalFrames}...`);
-                    await new Promise(resolve => setTimeout(resolve, 0)); // Yield control
+                    await new Promise(resolve => setTimeout(resolve, 0));
                 }
 
                 let filterForThisFrame = currentlySelectedFilter;
@@ -485,9 +495,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Redraw canvas for this specific frame's state (filter + text)
                 drawTextOnCanvas(filterForThisFrame);
 
+                // Apply an additional delay specifically for Android before capturing the frame,
+                // to give the rendering engine more time to complete drawing.
+                if (frameDelay > 0) {
+                    if (i % 10 === 0 || i === totalFrames -1) { // Log this delay less frequently
+                        console.log(`[Diag][Frame ${i+1}] Applying specific frame delay: ${frameDelay}ms`);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, frameDelay));
+                }
+
                 video.add(previewCanvas); // Add current state of previewCanvas
-                // Update status less frequently or make it part of the yielding block
-                if (i % 10 === 0 || i === totalFrames -1) {
+
+                if (i % 10 === 0 || i === totalFrames -1) { // Log frame addition less frequently
                     console.log(`[Diag][generateVideoCanvas] Added frame ${i + 1}/${totalFrames}. Filter applied: ${filterForThisFrame}`);
                 }
             }
@@ -496,25 +515,45 @@ document.addEventListener('DOMContentLoaded', () => {
             drawTextOnCanvas();
 
             updateStatus("Compiling WebM video... This might take a significant amount of time.");
-            console.log("[Diag][generateVideoCanvas] Compiling WebM video (this part is still synchronous and can be long)...");
+            console.log("[Diag][generateVideoCanvas] Attempting to compile WebM video...");
 
-            // The compile step itself is synchronous and CPU-intensive in Whammy.js.
-            // We can't make video.compile() asynchronous without modifying Whammy.js.
-            // However, the frame adding loop is now asynchronous.
             const videoBlob = await new Promise((resolve, reject) => {
                 try {
-                    // Whammy's compile() method returns a Blob directly.
-                    const result = video.compile();
+                    console.log("[Diag][generateVideoCanvas] Calling video.compile()...");
+                    const result = video.compile(); // This is synchronous
+                    console.log("[Diag][generateVideoCanvas] video.compile() finished.");
+                    if (!result) {
+                        console.error("[Diag][generateVideoCanvas] video.compile() returned null or undefined.");
+                        reject(new Error("Compilation resulted in a null/undefined object."));
+                        return;
+                    }
+                    console.log(`[Diag][generateVideoCanvas] video.compile() returned Blob: Size: ${result.size}, Type: ${result.type}`);
+                    if (result.size === 0) {
+                        console.warn("[Diag][generateVideoCanvas] video.compile() produced a zero-size Blob.");
+                        // Not rejecting here, but this is a strong indicator of failure.
+                    }
                     resolve(result);
                 } catch (compileError) {
-                    console.error("[Diag][generateVideoCanvas] Error during Whammy compile:", compileError);
+                    console.error("[Diag][generateVideoCanvas] Error explicitly thrown during Whammy compile:", compileError);
                     reject(compileError);
                 }
             });
 
-            const videoUrl = URL.createObjectURL(videoBlob);
+            if (!videoBlob) {
+                updateStatus("Error: Video compilation failed to produce a valid video Blob.");
+                console.error("[Diag][generateVideoCanvas] videoBlob is null or undefined after promise. Aborting download link setup.");
+                // generateBtn.disabled = false; // Already handled in finally
+                return; // Critical error, stop here
+            }
 
-            console.log("[Diag][generateVideoCanvas] WebM video Blob received from compile(). Blob URL created.");
+            console.log(`[Diag][generateVideoCanvas] Final videoBlob details: Size: ${videoBlob.size}, Type: ${videoBlob.type}`);
+            if (videoBlob.size === 0) {
+                updateStatus("Warning: Generated video file is empty (0 bytes). It might not play correctly.");
+                // We'll still create a download link to allow inspection of the (empty) file.
+            }
+
+            const videoUrl = URL.createObjectURL(videoBlob);
+            console.log("[Diag][generateVideoCanvas] WebM video Blob URL created:", videoUrl);
 
             downloadLink.href = videoUrl;
             downloadLink.download = `video_output_${Date.now()}.webm`;
