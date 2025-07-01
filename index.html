@@ -29,7 +29,7 @@
         <input type="number" id="fpsInput" value="24" min="1">
     </div>
 
-    <!-- New Quality Input -->
+    <!-- Quality Input for Whammy (WebP quality) - REMOVED as MediaRecorder uses bitrate
     <div>
         <label for="qualityInput">Video Quality (for WebP frames):</label>
         <select id="qualityInput">
@@ -39,6 +39,7 @@
             <option value="0.3">Very Low (0.3)</option>
         </select>
     </div>
+    -->
 
     <div>
         <label for="originalFramesInput">Initial Unfiltered Frames:</label>
@@ -109,7 +110,7 @@
     <a id="downloadLink" style="display:none;" download="output.webm">Download Video (WebM)</a>
     <!-- Hidden canvas for processing was previewCanvas, it's now visible in previewArea -->
 
-    <script src="lib/whammy.js"></script>
+    <!-- <script src="lib/whammy.js"></script> REMOVED -->
     <script src="script.js"></script>
 </body>
 </html>

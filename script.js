@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const enableBgColorCheckbox = document.getElementById('enableBgColor');
     const textPositionInput = document.getElementById('textPositionInput');
     const imageFilterInput = document.getElementById('imageFilterInput');
-    const qualityInput = document.getElementById('qualityInput'); // Added for video quality
+    // const qualityInput = document.getElementById('qualityInput'); // REMOVED - Whammy specific
 
     const previewArea = document.getElementById('previewArea');
     const originalPreviewCanvas = document.getElementById('originalPreviewCanvas');
@@ -406,21 +406,21 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             console.log("[Diag] Data for FFmpeg:", logData);
 
-            console.log("[Diag] Calling generateVideoWithCanvas()..."); // Will be renamed/refactored
-            generateVideoWithCanvas();
-            console.log("[Diag] Returned from generateVideoWithCanvas() call site.");
+            console.log("[Diag] Calling generateVideoWithMediaRecorder()...");
+            generateVideoWithMediaRecorder();
+            console.log("[Diag] Returned from generateVideoWithMediaRecorder() call site.");
         });
     }
 
     // --- FFmpeg Integration Removed ---
 
     /**
-     * Generates a WebM video from the current canvas content using Whammy.js.
+     * @deprecated Generates a WebM video from the current canvas content using Whammy.js.
      * It takes the loaded image with text overlay, captures frames,
      * and compiles them into a video.
      */
-    async function generateVideoWithCanvas() {
-        console.log("[Diag][generateVideoCanvas] Entered function.");
+    async function generateVideoWithWhammy_DEPRECATED() {
+        console.log("[Diag][generateVideoWhammy] Entered function.");
 
         if (!loadedImage) {
             updateStatus("Error: Please upload an image first.");
@@ -566,7 +566,195 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStatus(`Error during video generation: ${error.message || String(error)}.`);
             alert(`An error occurred during video generation: ${error.message || String(error)}.`);
         } finally {
-            console.log("[Diag][generateVideoCanvas] Entering finally block. Re-enabling generate button.");
+            console.log("[Diag][generateVideoWhammy] Entering finally block. Re-enabling generate button.");
+            generateBtn.disabled = false;
+        }
+    }
+
+
+    async function generateVideoWithMediaRecorder() {
+        console.log("[Diag][MediaRecorder] Entered generateVideoWithMediaRecorder function.");
+
+        if (!loadedImage) {
+            updateStatus("Error: Please upload an image first.");
+            alert("Please upload an image first.");
+            return;
+        }
+
+        const durationSec = parseFloat(durationInput.value);
+        const fpsVal = parseInt(fpsInput.value, 10);
+        // Quality input is for Whammy's WebP, MediaRecorder uses videoBitsPerSecond or default.
+        // const qualityVal = parseFloat(qualityInput.value);
+
+        if (isNaN(durationSec) || durationSec <= 0) {
+            updateStatus("Error: Invalid duration. Must be a positive number.");
+            alert("Error: Invalid duration. Must be a positive number.");
+            return;
+        }
+        if (isNaN(fpsVal) || fpsVal <= 0) {
+            updateStatus("Error: Invalid FPS. Must be a positive integer.");
+            alert("Error: Invalid FPS. Must be a positive integer.");
+            return;
+        }
+
+        // Check for MediaRecorder and canvas.captureStream support
+        if (!previewCanvas.captureStream) {
+            updateStatus("Error: Your browser does not support canvas.captureStream(). Cannot generate video.");
+            alert("Error: Browser does not support canvas.captureStream().");
+            return;
+        }
+        if (!window.MediaRecorder) {
+            updateStatus("Error: Your browser does not support MediaRecorder API. Cannot generate video.");
+            alert("Error: Browser does not support MediaRecorder API.");
+            return;
+        }
+
+        // Determine supported MIME type
+        const mimeTypes = [
+            'video/webm;codecs=vp9,opus',
+            'video/webm;codecs=vp9',
+            'video/webm;codecs=vp8,opus',
+            'video/webm;codecs=vp8',
+            'video/webm'
+        ];
+        const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+
+        if (!supportedMimeType) {
+            updateStatus("Error: No supported WebM MIME type found for MediaRecorder.");
+            alert("Error: No supported WebM MIME type found.");
+            return;
+        }
+        console.log(`[Diag][MediaRecorder] Using MIME type: ${supportedMimeType}`);
+
+        updateStatus("Starting video generation with MediaRecorder... This may take some time.");
+        generateBtn.disabled = true;
+        downloadLink.style.display = 'none';
+
+        const recordedChunks = [];
+        let mediaRecorder;
+        let renderLoopId; // For requestAnimationFrame
+
+        try {
+            const stream = previewCanvas.captureStream(fpsVal);
+            console.log(`[Diag][MediaRecorder] Canvas stream captured with ${fpsVal} FPS.`);
+
+            // Options for MediaRecorder. We can experiment with videoBitsPerSecond.
+            // A common default is 2.5 Mbps (2500000)
+            const options = {
+                mimeType: supportedMimeType,
+                videoBitsPerSecond: 2500000 // Example: 2.5 Mbps
+            };
+            // The 'qualityInput' previously used for Whammy's WebP quality could be repurposed
+            // to select different bitrates here if desired. For now, using a fixed bitrate.
+            // For example: if (qualityInput.value === '0.3') options.videoBitsPerSecond = 500000; etc.
+
+            mediaRecorder = new MediaRecorder(stream, options);
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                    console.log(`[Diag][MediaRecorder] Data available: chunk size ${event.data.size}`);
+                } else {
+                    console.log("[Diag][MediaRecorder] Data available: chunk size 0 (ignoring).");
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                console.log("[Diag][MediaRecorder] Recording stopped.");
+                if (renderLoopId) { // Ensure render loop is stopped
+                    cancelAnimationFrame(renderLoopId);
+                    renderLoopId = null;
+                }
+
+                if (recordedChunks.length === 0) {
+                    console.error("[Diag][MediaRecorder] No data chunks recorded. Video will be empty.");
+                    updateStatus("Error: No video data was recorded. Output might be empty or invalid.");
+                    // generateBtn.disabled = false; // Handled in finally
+                    // downloadLink.style.display = 'none'; // Already hidden
+                    // return; // Let finally block handle button re-enable
+                } else {
+                    const videoBlob = new Blob(recordedChunks, { type: supportedMimeType });
+                    console.log(`[Diag][MediaRecorder] Video Blob created. Size: ${videoBlob.size}, Type: ${videoBlob.type}`);
+
+                    if (videoBlob.size === 0) {
+                         updateStatus("Warning: Generated video file is empty (0 bytes).");
+                    }
+
+                    const videoUrl = URL.createObjectURL(videoBlob);
+                    downloadLink.href = videoUrl;
+                    downloadLink.download = `video_output_mr_${Date.now()}.webm`;
+                    downloadLink.style.display = 'block';
+                    downloadLink.textContent = 'Download Video (WebM - MediaRecorder)';
+                    updateStatus("MediaRecorder video ready for download!");
+                }
+                // Re-enable button in finally block
+            };
+
+            mediaRecorder.onerror = (event) => {
+                console.error("[Diag][MediaRecorder] MediaRecorder error:", event.error);
+                updateStatus(`MediaRecorder error: ${event.error.name} - ${event.error.message}`);
+                if (renderLoopId) {
+                    cancelAnimationFrame(renderLoopId);
+                    renderLoopId = null;
+                }
+                // Button re-enabled in finally block
+            };
+
+            let currentFrame = 0;
+            const totalFrames = Math.floor(durationSec * fpsVal);
+            const numOriginalFrames = parseInt(originalFramesInput.value, 10) || 0;
+            const currentlySelectedFilter = imageFilterInput.value;
+
+            function renderFrame() {
+                if (currentFrame < totalFrames) {
+                    let filterForThisFrame = currentlySelectedFilter;
+                    if (currentFrame < numOriginalFrames) {
+                        filterForThisFrame = 'none';
+                    }
+                    drawTextOnCanvas(filterForThisFrame); // Update canvas content
+
+                    if(currentFrame % fpsVal === 0) { // Update status roughly every second
+                         updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames}`);
+                    }
+                    console.log(`[Diag][MediaRecorder] Rendered frame ${currentFrame + 1}/${totalFrames}`);
+                    currentFrame++;
+                    renderLoopId = requestAnimationFrame(renderFrame);
+                } else {
+                    // All conceptual frames have been drawn.
+                    // The stream itself will run for durationSec.
+                    // We stop the recorder after the full duration.
+                    console.log("[Diag][MediaRecorder] All frames drawn to canvas according to calculation.");
+                    renderLoopId = null;
+                }
+            }
+
+            mediaRecorder.start();
+            console.log("[Diag][MediaRecorder] MediaRecorder started.");
+            updateStatus("Recording in progress...");
+
+            renderLoopId = requestAnimationFrame(renderFrame); // Start rendering frames to the canvas
+
+            // Stop recording after the specified duration
+            setTimeout(() => {
+                if (mediaRecorder.state === "recording") {
+                    mediaRecorder.stop();
+                    console.log("[Diag][MediaRecorder] Sent stop() command after duration.");
+                }
+                if (renderLoopId) { // Stop rAF loop if it's still somehow running
+                    cancelAnimationFrame(renderLoopId);
+                    renderLoopId = null;
+                    console.log("[Diag][MediaRecorder] Cleared rAF from timeout, just in case.");
+                }
+            }, durationSec * 1000);
+
+        } catch (error) {
+            console.error("[Diag][MediaRecorder] Error during MediaRecorder video generation:", error);
+            updateStatus(`Error: ${error.message || error}`);
+            if (renderLoopId) {
+                cancelAnimationFrame(renderLoopId);
+            }
+        } finally {
+            console.log("[Diag][MediaRecorder] Entering finally block. Re-enabling generate button.");
             generateBtn.disabled = false;
         }
     }
