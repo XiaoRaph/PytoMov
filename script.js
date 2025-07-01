@@ -462,10 +462,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (currentFrame % fpsVal === 0) { // Log status once per second (approx)
                         updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterForThisFrame}). Recorder state: ${mediaRecorder.state}`);
                         console.log(`[Diag][MediaRecorder] Render loop: Frame ${currentFrame + 1}/${totalFrames}. Filter: ${filterForThisFrame}. Recorder state: ${mediaRecorder.state}`);
-                        if (mediaRecorder && mediaRecorder.state === "recording") {
-                            console.log(`[Diag][MediaRecorder] Requesting data explicitly for frame ${currentFrame + 1}`);
-                            mediaRecorder.requestData();
-                        }
+                        // Removed explicit mediaRecorder.requestData(); call
+                        // The timeslice parameter in mediaRecorder.start() should handle dataavailable events.
                     }
                     currentFrame++;
                     renderLoopId = requestAnimationFrame(renderFrame);
