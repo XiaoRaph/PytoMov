@@ -20,7 +20,7 @@
     </div>
 
     <div>
-        <label for="durationInput">Duration (seconds):</label>
+        <label for="durationInput">Total Video Duration (seconds):</label>
         <input type="number" id="durationInput" value="5" min="1">
     </div>
 
@@ -29,36 +29,42 @@
         <input type="number" id="fpsInput" value="24" min="1">
     </div>
 
-    <!-- Quality Input for Whammy (WebP quality) - REMOVED as MediaRecorder uses bitrate
-    <div>
-        <label for="qualityInput">Video Quality (for WebP frames):</label>
-        <select id="qualityInput">
-            <option value="0.92">High (0.92)</option>
-            <option value="0.8" selected>Medium (0.8)</option>
-            <option value="0.5">Low (0.5)</option>
-            <option value="0.3">Very Low (0.3)</option>
-        </select>
-    </div>
-    -->
+    <!-- Removed originalFramesInput and effectActiveDurationInput sections -->
 
     <div>
-        <label for="originalFramesInput">Initial Unfiltered Frames:</label>
-        <input type="number" id="originalFramesInput" value="0" min="0">
-    </div>
-
-    <div>
-        <label for="imageFilterInput">Image Filter:</label>
+        <label for="imageFilterInput">Image Filter (for live preview):</label>
         <select id="imageFilterInput">
             <option value="none" selected>None</option>
             <option value="invert">Invert Colors (Negative)</option>
             <option value="sepia">Sepia Tone</option>
         </select>
     </div>
+    <p style="font-size: 0.9em; color: #555;"><em>Live preview updates based on this selection. For sequenced effects in the generated video, use the builder below. The total video duration is set above.</em></p>
 
-    <div>
-        <label for="effectActiveDurationInput">Selected Effect Active Duration (seconds):</label>
-        <input type="number" id="effectActiveDurationInput" value="5" min="0">
-    </div>
+    <fieldset id="effectSequenceBuilder" style="margin-top: 15px; border: 1px solid #ccc; padding: 10px;">
+        <legend>Effect Sequence Builder (for Video Generation)</legend>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom:10px;">
+            <div>
+                <label for="newEffectType">Effect Type:</label>
+                <select id="newEffectType">
+                    <option value="none">None (Original Image)</option>
+                    <option value="invert">Invert Colors</option>
+                    <option value="sepia">Sepia Tone</option>
+                </select>
+            </div>
+            <div>
+                <label for="newEffectDurationFrames">Duration (frames):</label>
+                <input type="number" id="newEffectDurationFrames" value="24" min="1" style="width: 70px;">
+            </div>
+            <button id="addEffectToSequenceBtn" style="align-self: flex-end;">Add Effect to Sequence</button>
+        </div>
+
+        <h4 style="margin-bottom: 5px; margin-top: 15px;">Current Effect Sequence:</h4>
+        <div id="effectSequenceListContainer">
+            <p><em>No effects added to sequence yet. Video will be based on total duration using 'None' filter.</em></p>
+            <!-- This OL will be dynamically populated by script.js -->
+        </div>
+    </fieldset>
 
     <div>
         <label for="fontSizeInput">Font Size (e.g., 50px, 3em):</label>
@@ -114,9 +120,7 @@
     </div>
 
     <a id="downloadLink" style="display:none;" download="output.webm">Download Video (WebM)</a>
-    <!-- Hidden canvas for processing was previewCanvas, it's now visible in previewArea -->
 
-    <!-- <script src="lib/whammy.js"></script> REMOVED -->
     <script src="script.js"></script>
 </body>
 </html>

@@ -97,14 +97,80 @@ document.addEventListener('DOMContentLoaded', () => {
     const enableBgColorCheckbox = document.getElementById('enableBgColor');
     const textPositionInput = document.getElementById('textPositionInput');
     const imageFilterInput = document.getElementById('imageFilterInput');
-    const effectActiveDurationInput = document.getElementById('effectActiveDurationInput'); // New input for effect duration
+    // const effectActiveDurationInput = document.getElementById('effectActiveDurationInput'); // REMOVED - Replaced by sequence builder
+    // const originalFramesInput = document.getElementById('originalFramesInput'); // REMOVED - Replaced by sequence builder
     // const qualityInput = document.getElementById('qualityInput'); // REMOVED - Whammy specific
+
+    // New UI elements for effect sequencing
+    const newEffectTypeInput = document.getElementById('newEffectType');
+    const newEffectDurationFramesInput = document.getElementById('newEffectDurationFrames');
+    const addEffectToSequenceBtn = document.getElementById('addEffectToSequenceBtn');
+    const effectSequenceListContainer = document.getElementById('effectSequenceListContainer');
 
     const previewArea = document.getElementById('previewArea');
     const originalPreviewCanvas = document.getElementById('originalPreviewCanvas');
     const originalCtx = originalPreviewCanvas.getContext('2d');
 
     let loadedImage = null; // Holds the currently loaded image object
+    let effectSequence = []; // Holds the sequence of effects for video generation
+
+    /**
+     * Renders the current effect sequence to the UI.
+     */
+    function renderEffectSequenceList() {
+        if (!effectSequenceListContainer) return;
+        effectSequenceListContainer.innerHTML = ''; // Clear previous list
+
+        if (effectSequence.length === 0) {
+            effectSequenceListContainer.innerHTML = '<p><em>No effects added to sequence yet. Video will be based on total duration using \'None\' filter.</em></p>';
+            return;
+        }
+
+        const ol = document.createElement('ol');
+        effectSequence.forEach((effectItem, index) => {
+            const li = document.createElement('li');
+            li.textContent = `${effectItem.type.charAt(0).toUpperCase() + effectItem.type.slice(1)} - ${effectItem.frames} frames`;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Remove';
+            removeBtn.style.marginLeft = '10px';
+            removeBtn.dataset.index = index; // Store index for removal
+            removeBtn.addEventListener('click', (event) => {
+                const indexToRemove = parseInt(event.target.dataset.index, 10);
+                effectSequence.splice(indexToRemove, 1); // Remove from array
+                renderEffectSequenceList(); // Re-render the list
+                updateStatus(`Effect at position ${indexToRemove + 1} removed from sequence.`);
+            });
+
+            li.appendChild(removeBtn);
+            ol.appendChild(li);
+        });
+        effectSequenceListContainer.appendChild(ol);
+    }
+
+    // Initial render of the (empty) sequence list
+    renderEffectSequenceList();
+
+
+    // Event listener for adding an effect to the sequence
+    if (addEffectToSequenceBtn) {
+        addEffectToSequenceBtn.addEventListener('click', () => {
+            const effectType = newEffectTypeInput.value;
+            const durationFrames = parseInt(newEffectDurationFramesInput.value, 10);
+
+            if (isNaN(durationFrames) || durationFrames <= 0) {
+                updateStatus("Error: Please enter a valid positive number for frame duration.");
+                alert("Error: Please enter a valid positive number for frame duration.");
+                return;
+            }
+
+            effectSequence.push({ type: effectType, frames: durationFrames });
+            renderEffectSequenceList();
+            newEffectDurationFramesInput.value = '24'; // Reset to default or clear
+            updateStatus(`Effect "${effectType}" for ${durationFrames} frames added to sequence.`);
+        });
+    }
+
 
     // Event listener for image file selection
     if (imageUpload) {
@@ -741,27 +807,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let currentFrame = 0;
             const totalFrames = Math.floor(durationSec * fpsVal);
-            const numOriginalFrames = parseInt(originalFramesInput.value, 10) || 0;
-            const effectActiveDuration = parseFloat(effectActiveDurationInput.value) || 0;
-            const numEffectFrames = Math.floor(effectActiveDuration * fpsVal);
-            const currentlySelectedFilter = imageFilterInput.value;
-
             console.log(`[Diag][MediaRecorder] Calculated totalFrames: ${totalFrames}`);
-            console.log(`[Diag][MediaRecorder] Initial unfiltered frames (originalFramesInput): ${numOriginalFrames}`);
-            console.log(`[Diag][MediaRecorder] Selected effect active duration (effectActiveDurationInput): ${effectActiveDuration}s, which is ${numEffectFrames} frames.`);
-            console.log(`[Diag][MediaRecorder] Selected filter for effect stage: ${currentlySelectedFilter}`);
+            console.log(`[Diag][MediaRecorder] Effect sequence for video:`, JSON.parse(JSON.stringify(effectSequence))); // Log a deep copy
 
-            // Determine filter for frame 0 (pre-draw)
-            let filterForFrameZero;
-            if (numOriginalFrames > 0) {
-                filterForFrameZero = 'none'; // Stage 1: Initial Unfiltered
-            } else if (numEffectFrames > 0) {
-                filterForFrameZero = currentlySelectedFilter; // Stage 2: Selected Effect Active
-            } else {
-                filterForFrameZero = 'none'; // Stage 3: Remaining Unfiltered (or all unfiltered if others are 0)
+            // Function to determine filter for a given frame based on the effectSequence
+            function getFilterForFrame(frameIndex, sequence) {
+                let cumulativeFrames = 0;
+                for (const effect of sequence) {
+                    if (frameIndex >= cumulativeFrames && frameIndex < cumulativeFrames + effect.frames) {
+                        return effect.type;
+                    }
+                    cumulativeFrames += effect.frames;
+                }
+                return 'none'; // Default if frameIndex is past all defined effects in sequence
             }
 
             // --- Pre-draw frame 0 before starting recorder ---
+            const filterForFrameZero = getFilterForFrame(0, effectSequence);
             console.log(`[Diag][MediaRecorder] Pre-drawing frame 0 with filter: ${filterForFrameZero}`);
             drawTextOnCanvas(filterForFrameZero);
             // --- End Pre-draw ---
@@ -777,19 +839,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (currentFrame < totalFrames) {
-                    let filterForThisFrame;
-                    // Determine filter based on current frame index and defined stages
-                    if (currentFrame < numOriginalFrames) {
-                        // Stage 1: Initial Unfiltered
-                        filterForThisFrame = 'none';
-                    } else if (currentFrame < numOriginalFrames + numEffectFrames) {
-                        // Stage 2: Selected Effect Active
-                        filterForThisFrame = currentlySelectedFilter;
-                    } else {
-                        // Stage 3: Remaining Unfiltered
-                        filterForThisFrame = 'none';
-                    }
-
+                    const filterForThisFrame = getFilterForFrame(currentFrame, effectSequence);
                     drawTextOnCanvas(filterForThisFrame); // Update canvas content
 
                     if(currentFrame % fpsVal === 0) { // Update status roughly every second
@@ -807,7 +857,6 @@ document.addEventListener('DOMContentLoaded', () => {
             mediaRecorder.onstart = () => {
                 console.log(`[Diag][MediaRecorder] MediaRecorder.onstart event. State: ${mediaRecorder.state}. Timestamp: ${Date.now()}`);
                 updateStatus("Recording in progress...");
-                // currentFrame is 0. The first call to renderFrame will determine filter for frame 0 based on new logic.
                 renderLoopId = requestAnimationFrame(renderFrame);
             };
 
