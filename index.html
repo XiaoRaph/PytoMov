@@ -127,6 +127,14 @@
         <p>Status: Idle</p>
     </div>
 
+    <!-- Loading Overlay and Progress Bar -->
+    <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; flex-direction: column;">
+        <p id="loadingMessage" style="color: white; font-size: 1.2em; margin-bottom: 10px;">Loading...</p>
+        <div id="progressBarContainer" style="width: 50%; background-color: #ddd; border-radius: 5px; display: none;"> <!-- Initially hidden -->
+            <div id="progressBar" style="width: 0%; height: 20px; background-color: #4CAF50; border-radius: 5px; text-align: center; line-height: 20px; color: white;"></div>
+        </div>
+    </div>
+
     <div id="previewArea" style="display: none; margin-top: 20px;">
         <div class="canvas-container">
             <h3>Original Image</h3>

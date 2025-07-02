@@ -23,7 +23,7 @@ let imageUpload, textInput, durationInput, fpsInput, fontSizeInput, textColorInp
 let generateBtn, statusMessages, downloadLink, previewCanvas, originalPreviewCanvas, audioUpload;
 let bgColorInput, clearBgColorBtn, enableBgColorCheckbox, textPositionInput, imageFilterInput;
 let newEffectTypeInput, newEffectDurationFramesInput, addEffectToSequenceBtn, effectSequenceListContainer;
-let previewArea;
+let previewArea, progressBar, loadingOverlay, loadingMessage; // Added progressBar, loadingOverlay, loadingMessage
 let ctx, originalCtx; // Canvas contexts
 
 // This function will be called from main.js on DOMContentLoaded
@@ -70,6 +70,15 @@ export function initializeUI() {
     // This is a bit of a hack; ideally, utils would take statusMessages as a param or UI would expose a method
     window.updateStatus = (message) => updateStatus(message, statusMessages);
 
+    // Expose progress bar and loading state functions to global scope for imageFilters.js
+    window.showProgressBar = showProgressBar;
+    window.updateProgressBar = updateProgressBar;
+    window.setLoadingState = setLoadingState;
+
+    // Select progress bar and loading overlay elements
+    progressBar = document.getElementById('progressBar');
+    loadingOverlay = document.getElementById('loadingOverlay');
+    loadingMessage = document.getElementById('loadingMessage');
 
     // Initialize event listeners
     if (audioUpload) {
@@ -357,4 +366,47 @@ function handleGenerateVideo() {
         drawFrameForVideo // Pass the drawing function for each frame
     );
     console.log("[Diag] Returned from generateVideoWithMediaRecorder() call site in UI module.");
+}
+
+// Progress bar and loading state functions
+function showProgressBar() {
+    if (progressBar) {
+        progressBar.style.width = '0%';
+        progressBar.parentElement.style.display = 'block'; // Assuming progress bar is inside a container
+    }
+}
+
+function updateProgressBar(percentage) {
+    if (progressBar) {
+        progressBar.style.width = `${percentage}%`;
+        if (percentage >= 100) {
+            // Optionally hide progress bar container after a short delay
+            setTimeout(() => {
+                if (progressBar) progressBar.parentElement.style.display = 'none';
+            }, 500);
+        }
+    }
+}
+
+function setLoadingState(isLoading, message = "Loading...") {
+    if (loadingOverlay && loadingMessage) {
+        if (isLoading) {
+            loadingMessage.textContent = message;
+            loadingOverlay.style.display = 'flex';
+        } else {
+            loadingOverlay.style.display = 'none';
+        }
+    }
+    // Disable/enable inputs to prevent interaction during loading
+    const inputsToDisable = [
+        imageUpload, textInput, durationInput, fpsInput, fontSizeInput,
+        textColorInput, fontFamilyInput, generateBtn, audioUpload, bgColorInput,
+        clearBgColorBtn, enableBgColorCheckbox, textPositionInput, imageFilterInput,
+        newEffectTypeInput, newEffectDurationFramesInput, addEffectToSequenceBtn
+    ];
+    inputsToDisable.forEach(input => {
+        if (input) {
+            input.disabled = isLoading;
+        }
+    });
 }
