@@ -19,14 +19,11 @@ export async function generateVideoWithMediaRecorder(
     loadedAudioArrayBuffer, // For audio
     effectSequence, // For effects per frame
     imageFilterInput, // For default filter if no sequence
-    drawTextOnCanvas // Function to draw each frame
-    // Note: ctx is derived from previewCanvas inside this function if needed for drawing,
-    // or drawTextOnCanvas should handle its own context.
-    // We also need a way to get the current filter for a frame if using an effect sequence.
+    drawTextOnCanvas, // Function to draw each frame
+    fitToAudio // Boolean flag from ui.js, true if video duration should match audio duration
 ) {
     console.log("[Diag][MediaRecorder] Entered generateVideoWithMediaRecorder function.");
     const ctx = previewCanvas ? previewCanvas.getContext('2d') : null;
-
 
     if (!loadedImage) {
         handleError("Please upload an image first.", true);
@@ -38,15 +35,15 @@ export async function generateVideoWithMediaRecorder(
         return;
     }
     if (!ctx) {
-         handleError("Canvas context (ctx) is not available for MediaRecorder. Cannot draw frames.", false);
-         if (generateBtn) generateBtn.disabled = false;
-         return;
+        handleError("Canvas context (ctx) is not available for MediaRecorder. Cannot draw frames.", false);
+        if (generateBtn) generateBtn.disabled = false;
+        return;
     }
 
-    const durationSec = parseFloat(durationInput.value);
+    let durationSec = parseFloat(durationInput.value); // Will be used if not overridden by audio
     const fpsVal = parseInt(fpsInput.value, 10);
 
-    if (isNaN(durationSec) || durationSec <= 0) { handleError("Invalid duration.", true); return; }
+    // Basic validation for FPS, duration will be validated after potential audio override
     if (isNaN(fpsVal) || fpsVal <= 0) { handleError("Invalid FPS.", true); return; }
 
     let missingFeatures = [];
@@ -106,6 +103,7 @@ export async function generateVideoWithMediaRecorder(
     const recordedChunks = [];
     let mediaRecorder;
     let renderLoopId;
+    let actualAudioDuration = null; // To store the true duration of the audio
 
     try {
         let audioTrack = null;
@@ -118,14 +116,32 @@ export async function generateVideoWithMediaRecorder(
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 try {
                     const decodedAudioBuffer = await audioContext.decodeAudioData(loadedAudioArrayBuffer.slice(0));
+                    actualAudioDuration = decodedAudioBuffer.duration; // Store actual audio duration
+                    console.log(`[Diag][MediaRecorder] Decoded audio duration: ${actualAudioDuration}s`);
+
+                    if (fitToAudio && actualAudioDuration > 0) {
+                        durationSec = actualAudioDuration; // Override video duration with audio duration
+                        console.log(`[Diag][MediaRecorder] 'Fit to Audio' is ON. Video duration set to audio duration: ${durationSec}s`);
+                        if (durationInput) durationInput.value = durationSec.toFixed(2); // Update UI if possible, though ui.js should handle this
+                    }
+
                     const audioSourceNode = audioContext.createBufferSource();
                     audioSourceNode.buffer = decodedAudioBuffer;
 
-                    if (decodedAudioBuffer.duration < durationSec) {
+                    // Audio looping logic:
+                    // If 'fitToAudio' is OFF, and audio is shorter than video, loop audio.
+                    // If 'fitToAudio' is ON, video duration matches audio, so no audio looping needed by this logic.
+                    // (Whammy/MediaRecorder might handle audio shorter than video stream differently, but we aim for them to match if fitToAudio is on)
+                    if (!fitToAudio && actualAudioDuration < durationSec) {
                         audioSourceNode.loop = true;
-                        console.log(`[Diag][MediaRecorder] Audio duration (${decodedAudioBuffer.duration}s) is shorter than video (${durationSec}s). Looping audio.`);
+                        console.log(`[Diag][MediaRecorder] 'Fit to Audio' is OFF. Audio duration (${actualAudioDuration}s) is shorter than video (${durationSec}s). Looping audio.`);
                     } else {
-                         audioSourceNode.loop = false;
+                        audioSourceNode.loop = false;
+                         if (fitToAudio) {
+                            console.log(`[Diag][MediaRecorder] 'Fit to Audio' is ON. Audio will play once, matching video duration.`);
+                        } else {
+                            console.log(`[Diag][MediaRecorder] 'Fit to Audio' is OFF. Audio duration (${actualAudioDuration}s) is not shorter than video (${durationSec}s). Audio will play once.`);
+                        }
                     }
 
                     const mediaStreamAudioDestinationNode = audioContext.createMediaStreamDestination();
@@ -141,13 +157,30 @@ export async function generateVideoWithMediaRecorder(
                     }
                 } catch (audioDecodeError) {
                     handleError(`Decoding audio: ${audioDecodeError.message}. Video will be generated without audio.`, false);
+                    // If fitting to audio and decoding fails, we have a problem with the duration.
+                    if (fitToAudio) {
+                        handleError("Cannot fit to audio duration because audio decoding failed. Please check the audio file or disable 'Fit to audio duration'.", true);
+                        if (generateBtn) generateBtn.disabled = false;
+                        return; // Critical error for this mode
+                    }
                 }
             }
         } else {
             console.log("[Diag][MediaRecorder] No audio data loaded, proceeding with video-only recording.");
+            if (fitToAudio) {
+                handleError("Cannot 'Fit to audio duration' because no audio is loaded. Please upload audio or disable the option.", true);
+                if (generateBtn) generateBtn.disabled = false;
+                return; // Critical error for this mode
+            }
         }
 
-        console.log(`[Diag][MediaRecorder] Attempting to capture video stream with ${fpsVal} FPS.`);
+        // Now validate durationSec after it might have been updated by audio
+        if (isNaN(durationSec) || durationSec <= 0) {
+            handleError("Invalid video duration. It must be a positive number.", true);
+            if (generateBtn) generateBtn.disabled = false;
+            return;
+        }
+        console.log(`[Diag][MediaRecorder] Final video duration for processing: ${durationSec}s at ${fpsVal} FPS.`);
         const videoStream = previewCanvas.captureStream(fpsVal);
         let finalStream;
 
@@ -212,20 +245,54 @@ export async function generateVideoWithMediaRecorder(
         let currentFrame = 0;
         const totalFrames = Math.floor(durationSec * fpsVal);
         const useSequence = effectSequence && effectSequence.length > 0;
+        let totalFramesInSequence = 0;
+        if (useSequence) {
+            totalFramesInSequence = effectSequence.reduce((acc, effect) => acc + effect.frames, 0);
+            console.log(`[Diag][MediaRecorder] Effect sequence present. Total frames in sequence: ${totalFramesInSequence}`);
+        }
 
-        function getFilterForFrameFromSequence(frameIndex, sequence) {
-            if (!useSequence) {
-                return imageFilterInput ? imageFilterInput.value : IMAGE_FILTER_NONE;
+        /**
+         * Determines the image filter type for a given frame index based on the effect sequence.
+         * If `fitToAudio` is true and the video duration (from audio) is longer than the
+         * effect sequence, the sequence is looped.
+         * @param {number} frameIndex - The current frame number in the overall video.
+         * @param {Array<Object>} sequence - The array of effect objects.
+         * @param {number} sequenceTotalFrames - The total number of frames defined in the effect sequence.
+         * @returns {string} The filter type (e.g., 'invert', 'none') to apply.
+         */
+        function getFilterForFrameFromSequence(frameIndex, sequence, sequenceTotalFrames) {
+            if (!useSequence || sequenceTotalFrames === 0) { // No sequence or an empty sequence.
+                return imageFilterInput ? imageFilterInput.value : IMAGE_FILTER_NONE; // Use global filter or none.
             }
+
+            // If fitting to audio and the effect sequence needs to be looped:
+            // Calculate the effective frame index within the sequence.
+            // Example: If sequence is 60 frames, and current video frame is 70,
+            // effectiveFrameIndex becomes 10 (70 % 60).
+            const effectiveFrameIndex = (fitToAudio && totalFrames > sequenceTotalFrames)
+                                      ? frameIndex % sequenceTotalFrames
+                                      : frameIndex;
+
             let cumulativeFrames = 0;
             for (const effect of sequence) {
-                if (frameIndex >= cumulativeFrames && frameIndex < cumulativeFrames + effect.frames) {
-                    return effect.type;
+                if (effectiveFrameIndex >= cumulativeFrames && effectiveFrameIndex < cumulativeFrames + effect.frames) {
+                    return effect.type; // Found the active effect for this frame.
                 }
                 cumulativeFrames += effect.frames;
             }
-            return sequence.length > 0 ? sequence[sequence.length -1].type : IMAGE_FILTER_NONE;
+
+            // Fallback logic:
+            // If `fitToAudio` is true and looping, this point should ideally not be reached if sequenceTotalFrames > 0,
+            // as modulo operation should keep effectiveFrameIndex within bounds.
+            // If `fitToAudio` is false (or sequence is shorter than video and not looping),
+            // and frameIndex is beyond the defined sequence, hold the last effect's filter.
+            // If sequence is empty (but useSequence was true), default to IMAGE_FILTER_NONE.
+            if (sequence.length > 0) {
+                return sequence[sequence.length - 1].type; // Hold last filter.
+            }
+            return IMAGE_FILTER_NONE; // Default if sequence is empty.
         }
+
 
         if (useSequence) {
              console.log(`[Diag][MediaRecorder] Using effect sequence for video generation:`, JSON.parse(JSON.stringify(effectSequence)));
@@ -235,7 +302,7 @@ export async function generateVideoWithMediaRecorder(
 
         function renderFrame() {
             if (currentFrame < totalFrames) {
-                const filterType = getFilterForFrameFromSequence(currentFrame, effectSequence);
+                const filterType = getFilterForFrameFromSequence(currentFrame, effectSequence, totalFramesInSequence);
                 // The drawTextOnCanvas function needs access to its required elements (textInput, fontSizeInput etc.)
                 // and also needs to call applyImageFilter internally.
                 // This implies drawTextOnCanvas needs to be either part of a class that has access to these,
@@ -243,12 +310,15 @@ export async function generateVideoWithMediaRecorder(
                 // For now, we assume drawTextOnCanvas is correctly defined in ui.js or main.js and handles this.
                 drawTextOnCanvas(filterType); // This call is the critical part that needs careful refactoring.
 
-                if (currentFrame % Math.max(1, fpsVal) === 0) {
-                     if (mediaRecorder && mediaRecorder.state) {
-                        updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterType}). Recorder: ${mediaRecorder.state}`, statusMessages);
-                     } else {
-                        updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterType}). Recorder: N/A`, statusMessages);
-                     }
+                if (currentFrame % Math.max(1, fpsVal) === 0) { // Update status message once per second (approx)
+                    let statusMsg = `Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterType}).`;
+                    if (fitToAudio && useSequence && totalFramesInSequence > 0 && totalFrames > totalFramesInSequence) {
+                        const currentLoop = Math.floor(currentFrame / totalFramesInSequence) + 1;
+                        const frameInLoop = currentFrame % totalFramesInSequence;
+                        statusMsg += ` Seq. Loop ${currentLoop}, Frame in Seq. ${frameInLoop + 1}/${totalFramesInSequence}.`;
+                    }
+                    statusMsg += ` Recorder: ${mediaRecorder && mediaRecorder.state ? mediaRecorder.state : 'N/A'}`;
+                    updateStatus(statusMsg, statusMessages);
                 }
                 currentFrame++;
                 renderLoopId = requestAnimationFrame(renderFrame);

@@ -23,6 +23,7 @@ let imageUpload, textInput, durationInput, fpsInput, fontSizeInput, textColorInp
 let generateBtn, statusMessages, downloadLink, previewCanvas, originalPreviewCanvas, audioUpload;
 let bgColorInput, clearBgColorBtn, enableBgColorCheckbox, textPositionInput, imageFilterInput;
 let newEffectTypeInput, newEffectDurationFramesInput, addEffectToSequenceBtn, effectSequenceListContainer;
+let fitToAudioDurationCheckbox; // Added for the new checkbox
 let previewArea, progressBar, loadingOverlay, loadingMessage; // Added progressBar, loadingOverlay, loadingMessage
 let ctx, originalCtx; // Canvas contexts
 
@@ -65,6 +66,7 @@ export function initializeUI() {
         console.error("Element with ID 'originalPreviewCanvas' not found. Original image preview will not work.");
     }
     audioUpload = document.getElementById('audioUpload');
+    fitToAudioDurationCheckbox = document.getElementById('fitToAudioDuration');
 
     // Make updateStatus globally available for utils.handleError
     // This is a bit of a hack; ideally, utils would take statusMessages as a param or UI would expose a method
@@ -131,7 +133,67 @@ export function initializeUI() {
     } else {
         console.error("Element with ID 'generateBtn' not found. Video generation will not work.");
     }
+
+    if (fitToAudioDurationCheckbox) {
+        fitToAudioDurationCheckbox.addEventListener('change', handleFitToAudioDurationChange);
+    } else {
+        console.warn("Element with ID 'fitToAudioDuration' not found. Fit to audio duration feature may not work as expected.");
+    }
+
     console.log("UI Initialized and event listeners attached.");
+}
+
+/**
+ * Asynchronously decodes an audio buffer to determine its duration.
+ * @param {ArrayBuffer} audioBuffer The ArrayBuffer containing the audio data.
+ * @returns {Promise<number|null>} A promise that resolves with the duration of the audio in seconds,
+ * or null if the buffer is invalid or decoding fails.
+ */
+async function getAudioDuration(audioBuffer) {
+    if (!audioBuffer) return null;
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const decodedAudio = await audioContext.decodeAudioData(audioBuffer.slice(0)); // Use slice(0) to work with a copy
+        return decodedAudio.duration;
+    } catch (e) {
+        handleError(`Error decoding audio to get duration: ${e.message}`, false);
+        return null;
+    }
+}
+
+/**
+ * Handles changes to the 'fitToAudioDurationCheckbox'.
+ * If checked and audio is loaded, it attempts to get the audio duration and update the
+ * video duration input field, disabling it.
+ * If unchecked, or if audio is not loaded/fails to decode, it enables the video duration input.
+ */
+function handleFitToAudioDurationChange() {
+    if (!fitToAudioDurationCheckbox || !durationInput) return;
+
+    if (fitToAudioDurationCheckbox.checked) {
+        if (loadedAudioArrayBuffer) {
+            getAudioDuration(loadedAudioArrayBuffer).then(audioDuration => {
+                if (audioDuration !== null) {
+                    durationInput.value = audioDuration.toFixed(2); // Display duration, rounded
+                    durationInput.disabled = true;
+                    updateStatus(`Video duration will be set to audio duration: ${audioDuration.toFixed(2)}s. Manual duration input disabled.`, statusMessages);
+                } else {
+                    // Failed to get duration, uncheck and enable input
+                    fitToAudioDurationCheckbox.checked = false;
+                    durationInput.disabled = false;
+                    updateStatus("Could not determine audio duration. Please set video duration manually.", statusMessages);
+                }
+            });
+        } else {
+            // No audio loaded, uncheck the box and inform user
+            fitToAudioDurationCheckbox.checked = false;
+            durationInput.disabled = false; // Should already be false, but ensure
+            handleError("Please upload an audio file first to use 'Fit to audio duration'.", true);
+        }
+    } else {
+        durationInput.disabled = false;
+        updateStatus("Manual video duration input enabled.", statusMessages);
+    }
 }
 
 function handleAudioUpload(event) {
@@ -142,16 +204,32 @@ function handleAudioUpload(event) {
             loadedAudioArrayBuffer = e.target.result;
             updateStatus(`Audio file "${file.name}" loaded.`, statusMessages);
             console.log(`Audio file "${file.name}" loaded, size: ${loadedAudioArrayBuffer.byteLength} bytes.`);
+            // If fitToAudio checkbox is checked, update duration
+            if (fitToAudioDurationCheckbox && fitToAudioDurationCheckbox.checked) {
+                handleFitToAudioDurationChange(); // Re-trigger logic to update duration
+            }
         };
         reader.onerror = (e) => {
             loadedAudioArrayBuffer = null;
             handleError(`Loading audio file: ${file.name}. Details: ${e.target.error.message || e.target.error}`, false);
+            if (fitToAudioDurationCheckbox && fitToAudioDurationCheckbox.checked) {
+                // If audio loading fails and checkbox is checked, uncheck it and enable duration input
+                fitToAudioDurationCheckbox.checked = false;
+                if (durationInput) durationInput.disabled = false;
+                updateStatus("Audio loading failed. Manual video duration input enabled.", statusMessages);
+            }
         };
         reader.readAsArrayBuffer(file);
     } else {
         loadedAudioArrayBuffer = null;
         updateStatus("Audio selection cleared.", statusMessages);
         console.log("Audio selection cleared.");
+        if (fitToAudioDurationCheckbox && fitToAudioDurationCheckbox.checked) {
+            // If audio is cleared and checkbox is checked, uncheck it and enable duration input
+            fitToAudioDurationCheckbox.checked = false;
+            if (durationInput) durationInput.disabled = false;
+            updateStatus("Audio cleared. Manual video duration input enabled.", statusMessages);
+        }
     }
 }
 
@@ -350,20 +428,25 @@ function handleGenerateVideo() {
         return;
     }
 
+    // The durationInput.value is already updated by handleFitToAudioDurationChange if the checkbox is checked.
+    // So, we can directly use durationInput for the call to videoGenerator.
+    // videoGenerator.js will be responsible for the actual logic of fitting video to this duration,
+    // including looping effects if necessary.
+
     console.log("[Diag] Calling generateVideoWithMediaRecorder() from UI module...");
-    // Call the imported function from videoGenerator.js
     generateVideoWithMediaRecorder(
         loadedImage,
-        durationInput,
+        durationInput, // This will reflect audio duration if 'fit to audio' is checked and audio loaded
         fpsInput,
-        previewCanvas, // Needed for stream capture and context
+        previewCanvas,
         downloadLink,
         generateBtn,
-        statusMessages, // Pass the DOM element for updateStatus
+        statusMessages,
         loadedAudioArrayBuffer,
         effectSequence,
-        imageFilterInput, // Pass the input element itself
-        drawFrameForVideo // Pass the drawing function for each frame
+        imageFilterInput,
+        drawFrameForVideo,
+        fitToAudioDurationCheckbox ? fitToAudioDurationCheckbox.checked : false // Pass the state of the checkbox
     );
     console.log("[Diag] Returned from generateVideoWithMediaRecorder() call site in UI module.");
 }
