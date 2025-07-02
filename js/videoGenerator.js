@@ -49,14 +49,41 @@ export async function generateVideoWithMediaRecorder(
     if (isNaN(durationSec) || durationSec <= 0) { handleError("Invalid duration.", true); return; }
     if (isNaN(fpsVal) || fpsVal <= 0) { handleError("Invalid FPS.", true); return; }
 
-    if (!previewCanvas.captureStream) {
-        handleError("Browser does not support canvas.captureStream(). Try a different browser like Chrome or Firefox.", true);
-        if (generateBtn) generateBtn.disabled = false;
-        return;
+    let missingFeatures = [];
+    if (!HTMLCanvasElement.prototype.captureStream) {
+        missingFeatures.push("HTMLCanvasElement.captureStream");
     }
     if (!window.MediaRecorder) {
-        handleError("Browser does not support MediaRecorder API. Try a different browser like Chrome or Firefox.", true);
-        if (generateBtn) generateBtn.disabled = false;
+        missingFeatures.push("MediaRecorder API");
+    }
+
+    if (missingFeatures.length > 0) {
+        const featureList = missingFeatures.join(" and ");
+        const errorMessage = `Your browser does not support: ${featureList}. Video generation is not available. Please try a modern browser like Chrome or Firefox.`;
+        handleError(errorMessage, true); // true to make it a prominent error
+
+        if (generateBtn) generateBtn.disabled = true;
+
+        // Attempt to hide relevant UI sections.
+        // These IDs are assumed based on index.html and typical UI structure.
+        // If these elements are not found, no error will occur, but they won't be hidden.
+        const videoControlsContainer = document.getElementById('effectSequenceBuilder'); // This seems like a good container for video-specific controls
+        if (videoControlsContainer) {
+            videoControlsContainer.style.display = 'none';
+        }
+        // Also hide the generate button itself, though it's disabled.
+        if (generateBtn) {
+            generateBtn.style.display = 'none';
+        }
+        // Hide download link area if it exists
+        if (downloadLink) {
+            downloadLink.style.display = 'none';
+        }
+        // Optionally, disable other related inputs if they are not within a container that's hidden
+        if (durationInput) durationInput.disabled = true;
+        if (fpsInput) fpsInput.disabled = true;
+        // Add any other elements that should be hidden or disabled
+
         return;
     }
 
