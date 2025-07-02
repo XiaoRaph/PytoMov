@@ -6,39 +6,37 @@
     <title>Image to Video Creator</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <h1>Image to Video Creator</h1>
+<body class="app-container">
+    <h1 class="app-container__main-title">Image to Video Creator</h1>
 
-    <div>
-        <label for="imageUpload">Upload Image:</label>
-        <input type="file" id="imageUpload" accept="image/*">
+    <div class="form-group">
+        <label class="form-group__label" for="imageUpload">Upload Image:</label>
+        <input class="form-group__input form-group__input--file" type="file" id="imageUpload" accept="image/*">
     </div>
 
-    <div>
-        <label for="audioUpload">Upload MP3 Audio (optional):</label>
-        <input type="file" id="audioUpload" accept="audio/mpeg">
+    <div class="form-group">
+        <label class="form-group__label" for="audioUpload">Upload MP3 Audio (optional):</label>
+        <input class="form-group__input form-group__input--file" type="file" id="audioUpload" accept="audio/mpeg">
     </div>
 
-    <div>
-        <label for="textInput">Overlay Text:</label>
-        <input type="text" id="textInput" value="Hello World">
+    <div class="form-group">
+        <label class="form-group__label" for="textInput">Overlay Text:</label>
+        <input class="form-group__input form-group__input--text" type="text" id="textInput" value="Hello World">
     </div>
 
-    <div>
-        <label for="durationInput">Total Video Duration (seconds):</label>
-        <input type="number" id="durationInput" value="5" min="1">
+    <div class="form-group">
+        <label class="form-group__label" for="durationInput">Total Video Duration (seconds):</label>
+        <input class="form-group__input form-group__input--number" type="number" id="durationInput" value="5" min="1">
     </div>
 
-    <div>
-        <label for="fpsInput">FPS (Frames Per Second):</label>
-        <input type="number" id="fpsInput" value="24" min="1">
+    <div class="form-group">
+        <label class="form-group__label" for="fpsInput">FPS (Frames Per Second):</label>
+        <input class="form-group__input form-group__input--number" type="number" id="fpsInput" value="24" min="1">
     </div>
 
-    <!-- Removed originalFramesInput and effectActiveDurationInput sections -->
-
-    <div>
-        <label for="imageFilterInput">Image Filter (for live preview):</label>
-        <select id="imageFilterInput">
+    <div class="form-group">
+        <label class="form-group__label" for="imageFilterInput">Image Filter (for live preview):</label>
+        <select class="form-group__select" id="imageFilterInput">
             <option value="none" selected>None</option>
             <option value="invert">Invert Colors (Negative)</option>
             <option value="sepia">Sepia Tone</option>
@@ -51,14 +49,14 @@
             <option value="solarize">Solarize</option>
         </select>
     </div>
-    <p style="font-size: 0.9em; color: #555;"><em>Live preview updates based on this selection. For sequenced effects in the generated video, use the builder below. The total video duration is set above.</em></p>
+    <p class="form-group__description"><em>Live preview updates based on this selection. For sequenced effects in the generated video, use the builder below. The total video duration is set above.</em></p>
 
-    <fieldset id="effectSequenceBuilder" style="margin-top: 15px; border: 1px solid #ccc; padding: 10px;">
-        <legend>Effect Sequence Builder (for Video Generation)</legend>
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom:10px;">
-            <div>
-                <label for="newEffectType">Effect Type:</label>
-                <select id="newEffectType">
+    <fieldset class="effect-sequencer" id="effectSequenceBuilder">
+        <legend class="effect-sequencer__legend">Effect Sequence Builder (for Video Generation)</legend>
+        <div class="effect-sequencer__add-form">
+            <div class="form-group form-group--inline">
+                <label class="form-group__label" for="newEffectType">Effect Type:</label>
+                <select class="form-group__select" id="newEffectType">
                     <option value="none">None (Original Image)</option>
                     <option value="invert">Invert Colors</option>
                     <option value="sepia">Sepia Tone</option>
@@ -71,44 +69,46 @@
                     <option value="solarize">Solarize</option>
                 </select>
             </div>
-            <div>
-                <label for="newEffectDurationFrames">Duration (frames):</label>
-                <input type="number" id="newEffectDurationFrames" value="24" min="1" style="width: 70px;">
+            <div class="form-group form-group--inline">
+                <label class="form-group__label" for="newEffectDurationFrames">Duration (frames):</label>
+                <input class="form-group__input form-group__input--number form-group__input--short" type="number" id="newEffectDurationFrames" value="24" min="1">
             </div>
-            <button id="addEffectToSequenceBtn" style="align-self: flex-end;">Add Effect to Sequence</button>
+            <button class="button button--primary effect-sequencer__add-button" id="addEffectToSequenceBtn">Add Effect to Sequence</button>
         </div>
 
-        <h4 style="margin-bottom: 5px; margin-top: 15px;">Current Effect Sequence:</h4>
-        <div id="effectSequenceListContainer">
-            <p><em>No effects added to sequence yet. Video will be based on total duration using 'None' filter.</em></p>
+        <h4 class="effect-sequencer__list-title">Current Effect Sequence:</h4>
+        <div class="effect-sequencer__list-container" id="effectSequenceListContainer">
+            <p class="effect-sequencer__empty-message"><em>No effects added to sequence yet. Video will be based on total duration using 'None' filter.</em></p>
             <!-- This OL will be dynamically populated by script.js -->
         </div>
     </fieldset>
 
-    <div>
-        <label for="fontSizeInput">Font Size (e.g., 50px, 3em):</label>
-        <input type="text" id="fontSizeInput" value="50px">
+    <div class="form-group">
+        <label class="form-group__label" for="fontSizeInput">Font Size (e.g., 50px, 3em):</label>
+        <input class="form-group__input form-group__input--text" type="text" id="fontSizeInput" value="50px">
     </div>
 
-    <div>
-        <label for="textColorInput">Text Color:</label>
-        <input type="color" id="textColorInput" value="#FFFFFF">
+    <div class="form-group">
+        <label class="form-group__label" for="textColorInput">Text Color:</label>
+        <input class="form-group__input form-group__input--color" type="color" id="textColorInput" value="#FFFFFF">
     </div>
 
-    <div>
-        <label for="fontFamilyInput">Font Family (e.g., Arial, 'Times New Roman', sans-serif):</label>
-        <input type="text" id="fontFamilyInput" value="sans-serif">
+    <div class="form-group">
+        <label class="form-group__label" for="fontFamilyInput">Font Family (e.g., Arial, 'Times New Roman', sans-serif):</label>
+        <input class="form-group__input form-group__input--text" type="text" id="fontFamilyInput" value="sans-serif">
     </div>
 
-    <div>
-        <label for="bgColorInput">Text Background Color (optional):</label>
-        <input type="color" id="bgColorInput" value="#000000"> <button id="clearBgColorBtn">No BG</button>
-        <input type="checkbox" id="enableBgColor" title="Enable Background Color"> Enable
+    <div class="form-group">
+        <label class="form-group__label" for="bgColorInput">Text Background Color (optional):</label>
+        <input class="form-group__input form-group__input--color" type="color" id="bgColorInput" value="#000000">
+        <button class="button button--danger button--inline" id="clearBgColorBtn">No BG</button>
+        <input class="form-group__checkbox" type="checkbox" id="enableBgColor" title="Enable Background Color">
+        <label class="form-group__checkbox-label" for="enableBgColor">Enable</label>
     </div>
 
-    <div>
-        <label for="textPositionInput">Text Position:</label>
-        <select id="textPositionInput">
+    <div class="form-group">
+        <label class="form-group__label" for="textPositionInput">Text Position:</label>
+        <select class="form-group__select" id="textPositionInput">
             <option value="center" selected>Center</option>
             <option value="top_left">Top Left</option>
             <option value="top_center">Top Center</option>
@@ -121,36 +121,36 @@
         </select>
     </div>
 
-    <button id="generateBtn">Generate Video</button>
+    <button class="button button--primary button--full-width" id="generateBtn">Generate Video</button>
 
-    <div id="statusMessages">
-        <p>Status: Idle</p>
+    <div class="status-messages" id="statusMessages">
+        <p class="status-messages__message">Status: Idle</p>
     </div>
 
     <!-- Loading Overlay and Progress Bar -->
-    <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; flex-direction: column;">
-        <p id="loadingMessage" style="color: white; font-size: 1.2em; margin-bottom: 10px;">Loading...</p>
-        <div id="progressBarContainer" style="width: 50%; background-color: #ddd; border-radius: 5px; display: none;"> <!-- Initially hidden -->
-            <div id="progressBar" style="width: 0%; height: 20px; background-color: #4CAF50; border-radius: 5px; text-align: center; line-height: 20px; color: white;"></div>
+    <div class="loading-overlay" id="loadingOverlay"> <!-- display:none is handled by class -->
+        <p class="loading-overlay__message" id="loadingMessage">Loading...</p>
+        <div class="loading-overlay__progress-bar-container" id="progressBarContainer"> <!-- display:none is handled by class -->
+            <div class="loading-overlay__progress-bar" id="progressBar"></div>
         </div>
     </div>
 
-    <div id="previewArea" style="display: none; margin-top: 20px;">
-        <div class="canvas-container">
-            <h3>Original Image</h3>
-            <canvas id="originalPreviewCanvas"></canvas>
+    <div class="preview-area" id="previewArea"> <!-- display:none and margin-top handled by class -->
+        <div class="preview-area__canvas-container">
+            <h3 class="preview-area__title">Original Image</h3>
+            <canvas class="preview-area__canvas" id="originalPreviewCanvas"></canvas>
         </div>
-        <div class="canvas-container">
-            <h3>Live Preview (with Effects & Text)</h3>
-            <canvas id="previewCanvas"></canvas> <!-- Existing canvas -->
+        <div class="preview-area__canvas-container">
+            <h3 class="preview-area__title">Live Preview (with Effects & Text)</h3>
+            <canvas class="preview-area__canvas" id="previewCanvas"></canvas>
         </div>
     </div>
 
-    <a id="downloadLink" style="display:none;" download="output.webm">Download Video (WebM)</a>
+    <a class="button button--success button--download" id="downloadLink" download="output.webm">Download Video (WebM)</a> <!-- display:none handled by class -->
 
-    <div id="onPageConsoleContainer">
-        <h2>Console Output</h2>
-        <div id="onPageConsole"></div>
+    <div class="console" id="onPageConsoleContainer"> <!-- margin-top handled by class -->
+        <h2 class="console__title">Console Output</h2>
+        <div class="console__log-area" id="onPageConsole"></div>
     </div>
 
     <script type="module" src="js/main.js"></script>

@@ -1,16 +1,27 @@
-body {
+/* ==========================================================================
+   Base Styles & App Container
+   ========================================================================== */
+
+.app-container {
     font-family: sans-serif;
     margin: 20px;
     background-color: #f4f4f4;
     color: #333;
 }
 
-h1 {
+.app-container__main-title {
     text-align: center;
     color: #2c3e50;
 }
 
-div {
+/* ==========================================================================
+   Components
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Form Group (Reusable for label-input pairs)
+   -------------------------------------------------------------------------- */
+.form-group {
     margin-bottom: 15px;
     padding: 10px;
     background-color: #fff;
@@ -18,16 +29,14 @@ div {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-label {
+.form-group__label {
     display: inline-block;
     margin-bottom: 5px;
     font-weight: bold;
 }
 
-input[type="file"],
-input[type="text"],
-input[type="number"],
-input[type="color"] {
+.form-group__input,
+.form-group__select {
     width: calc(100% - 22px); /* Full width minus padding and border */
     padding: 10px;
     margin-top: 5px;
@@ -36,144 +45,236 @@ input[type="color"] {
     box-sizing: border-box;
 }
 
-input[type="color"] {
+.form-group__input--color {
     width: 100px; /* More appropriate width for color pickers */
     height: 40px;
     padding: 5px;
 }
 
+.form-group__input--short {
+    width: 70px;
+}
 
-button {
+.form-group__checkbox {
+    margin-left: 5px;
+}
+
+.form-group__checkbox-label {
+    font-weight: normal;
+    margin-left: 3px;
+}
+
+.form-group__description {
+    font-size: 0.9em;
+    color: #555;
+    margin-top: 5px;
+}
+
+/* --------------------------------------------------------------------------
+   Button Component
+   -------------------------------------------------------------------------- */
+.button {
     display: block;
-    width: 100%;
     padding: 12px;
-    background-color: #3498db;
+    background-color: #3498db; /* Default primary color */
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
-    transition: background-color 0.3s ease;
-}
-
-button:hover {
-    background-color: #2980b9;
-}
-
-#clearBgColorBtn {
-    display: inline-block;
-    width: auto;
-    padding: 8px 12px;
-    background-color: #e74c3c;
-    margin-left: 10px;
-}
-#clearBgColorBtn:hover {
-    background-color: #c0392b;
-}
-
-
-#statusMessages {
-    margin-top: 20px;
-    padding: 10px;
-    background-color: #ecf0f1;
-    border-left: 5px solid #3498db;
-}
-
-#statusMessages p {
-    margin: 0;
-    padding: 5px 0;
-}
-
-#downloadLink {
-    display: inline-block;
-    margin-top: 20px;
-    padding: 10px 15px;
-    background-color: #2ecc71;
-    color: white;
     text-decoration: none;
-    border-radius: 4px;
     text-align: center;
     transition: background-color 0.3s ease;
 }
 
-#downloadLink:hover {
+.button:hover {
+    background-color: #2980b9;
+}
+
+.button--primary {
+    /* Default state, styles covered by .button */
+}
+.button--primary:hover {
+    /* Styles covered by .button:hover */
+}
+
+.button--danger {
+    background-color: #e74c3c;
+}
+.button--danger:hover {
+    background-color: #c0392b;
+}
+
+.button--success {
+    background-color: #2ecc71;
+}
+.button--success:hover {
     background-color: #27ae60;
 }
 
-/* Styles for the dual canvas preview area */
-#previewArea {
-    display: flex; /* Uses flexbox for layout */
-    flex-wrap: wrap; /* Allow wrapping on smaller screens */
-    justify-content: space-around; /* Distribute space */
-    align-items: flex-start; /* Align items to the top */
+.button--download { /* Specific for the download link styled as a button */
+    display: none; /* Initial state */
+    margin-top: 20px;
+}
+
+.button--full-width {
+    width: 100%;
+}
+
+.button--inline {
+    display: inline-block;
+    width: auto;
+    padding: 8px 12px;
+    margin-left: 10px;
+}
+
+/* ==========================================================================
+   Page Sections & Specific UI Elements
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Status Messages
+   -------------------------------------------------------------------------- */
+.status-messages {
+    margin-top: 20px;
     padding: 10px;
-    background-color: #e9e9e9; /* Slightly different background for the area */
+    background-color: #ecf0f1;
+    border-left: 5px solid #3498db;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.status-messages__message {
+    margin: 0;
+    padding: 5px 0;
+}
+
+/* --------------------------------------------------------------------------
+   Effect Sequencer
+   -------------------------------------------------------------------------- */
+.effect-sequencer {
+    margin-top: 15px;
+    border: 1px solid #ccc;
+    padding: 10px;
+}
+
+.effect-sequencer__legend {
+    font-weight: bold;
+}
+
+.effect-sequencer__add-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+/* Contextual styling for form-group when inside effect-sequencer__add-form */
+.effect-sequencer__add-form .form-group--inline {
+    padding: 0;
+    margin-bottom: 0;
+    box-shadow: none;
+    background-color: transparent;
+}
+
+.effect-sequencer__add-button {
+    align-self: flex-end;
+}
+
+.effect-sequencer__list-title {
+    margin-bottom: 5px;
+    margin-top: 15px;
+}
+
+.effect-sequencer__list-container {
+    /* No specific styles needed currently */
+}
+
+.effect-sequencer__empty-message {
+    font-style: italic;
+    color: #555;
+}
+
+/* --------------------------------------------------------------------------
+   Preview Area
+   -------------------------------------------------------------------------- */
+.preview-area {
+    display: none; /* Initial state: hidden. JS should change to display: flex; to show. */
+    margin-top: 20px;
+    /* Flex properties will apply once display is changed from none by JS: */
+    flex-wrap: wrap;
+    justify-content: space-around;
+    align-items: flex-start;
+    padding: 10px;
+    background-color: #e9e9e9;
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.canvas-container {
-    flex: 1; /* Allow containers to grow */
-    min-width: 300px; /* Minimum width before wrapping */
+.preview-area__canvas-container {
+    flex: 1;
+    min-width: 300px;
     margin: 10px;
     padding: 15px;
     background-color: #fff;
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    text-align: center; /* Center the heading */
+    text-align: center;
 }
 
-.canvas-container h3 {
+.preview-area__title {
     margin-top: 0;
     margin-bottom: 10px;
     color: #333;
 }
 
-#originalPreviewCanvas,
-#previewCanvas {
+.preview-area__canvas {
     display: block;
-    max-width: 100%; /* Ensure canvas is responsive within its container */
-    margin: 0 auto 10px auto; /* Center canvas and add some bottom margin */
+    max-width: 100%;
+    margin: 0 auto 10px auto;
     border: 1px solid #ccc;
-    background-color: #fff; /* Explicit white background for canvases */
+    background-color: #fff;
 }
 
-
-/* On-Page Console Styles */
-#onPageConsoleContainer {
+/* --------------------------------------------------------------------------
+   On-Page Console
+   -------------------------------------------------------------------------- */
+.console {
     margin-top: 30px;
     padding: 15px;
-    background-color: #2c3e50; /* Dark background for console */
-    color: #ecf0f1; /* Light text for console */
+    background-color: #2c3e50;
+    color: #ecf0f1;
     border-radius: 5px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
-#onPageConsoleContainer h2 {
-    color: #ecf0f1; /* Light heading text */
+.console__title {
+    color: #ecf0f1;
     margin-top: 0;
     margin-bottom: 10px;
     border-bottom: 1px solid #34495e;
     padding-bottom: 10px;
+    text-align: left;
 }
 
-#onPageConsole {
-    background-color: #34495e; /* Slightly lighter dark for the log area */
+.console__log-area {
+    background-color: #34495e;
     color: #ecf0f1;
     min-height: 100px;
-    max-height: 400px; /* Limit height and make scrollable */
-    overflow-y: auto;   /* Enable vertical scrolling */
+    max-height: 400px;
+    overflow-y: auto;
     padding: 10px;
     border-radius: 4px;
-    font-family: 'Courier New', Courier, monospace; /* Monospaced font for logs */
+    font-family: 'Courier New', Courier, monospace;
     font-size: 0.9em;
     line-height: 1.4;
-    white-space: pre-wrap; /* Wrap long lines, preserve whitespace */
+    white-space: pre-wrap;
 }
 
+/* Log Entry specific styles (dynamically added by JS) */
 .log-entry {
     padding: 4px 6px;
-    border-bottom: 1px solid #2c3e50; /* Separator lines */
+    border-bottom: 1px solid #2c3e50;
     margin-bottom: 2px;
 }
 
@@ -181,31 +282,71 @@ button:hover {
     border-bottom: none;
 }
 
-.log-log {
-    color: #ecf0f1; /* Default log text color (already light) */
+.log-entry--log {
+    color: #ecf0f1;
 }
 
-.log-info {
-    color: #3498db; /* Blue for info */
+.log-entry--info {
+    color: #3498db;
 }
 
-.log-warn {
-    color: #f39c12; /* Orange for warnings */
+.log-entry--warn {
+    color: #f39c12;
     font-weight: bold;
 }
 
-.log-error {
-    color: #e74c3c; /* Red for errors */
+.log-entry--error {
+    color: #e74c3c;
     font-weight: bold;
 }
 
-.log-debug {
-    color: #95a5a6; /* Grey for debug */
+.log-entry--debug {
+    color: #95a5a6;
     font-style: italic;
 }
 
-.log-entry pre {
+.log-entry__pre { /* For <pre> tags inside log entries if used */
     margin: 0;
-    white-space: pre-wrap;       /* Since CSS 2.1 */
-    word-wrap: break-word;       /* Internet Explorer 5.5+ */
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* --------------------------------------------------------------------------
+   Loading Overlay
+   -------------------------------------------------------------------------- */
+.loading-overlay {
+    display: none; /* Initial state, JS toggles visibility */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.loading-overlay__message {
+    color: white;
+    font-size: 1.2em;
+    margin-bottom: 10px;
+}
+
+.loading-overlay__progress-bar-container {
+    width: 50%;
+    background-color: #ddd;
+    border-radius: 5px;
+    display: none; /* Initial state, JS might show this */
+}
+
+.loading-overlay__progress-bar {
+    width: 0%; /* Initial state, JS updates width */
+    height: 20px;
+    background-color: #4CAF50;
+    border-radius: 5px;
+    text-align: center;
+    line-height: 20px;
+    color: white;
 }
