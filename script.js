@@ -73,6 +73,27 @@ window.onunhandledrejection = function(event) {
 };
 // --- End On-page console logger ---
 
+// --- Standardized Error Handler ---
+function handleError(message, shouldAlert = false) {
+    /**
+     * Handles errors consistently across the application.
+     * Updates the status message, logs to console, and optionally shows an alert.
+     * @param {string} message - The error message to display and log.
+     * @param {boolean} [shouldAlert=false] - Whether to show a browser alert.
+     */
+    const errorMessage = `Error: ${message}`;
+    if (typeof updateStatus === 'function') { // Check if updateStatus is available
+        updateStatus(errorMessage);
+    } else {
+        originalConsole.error("updateStatus function not available. Error message:", errorMessage);
+    }
+    originalConsole.error(message); // Log the original message for cleaner console if needed, or errorMessage
+    if (shouldAlert) {
+        alert(errorMessage);
+    }
+}
+// --- End Standardized Error Handler ---
+
 // Main script execution starts after the DOM is fully loaded.
 document.addEventListener('DOMContentLoaded', () => {
     const imageUpload = document.getElementById('imageUpload');
@@ -130,8 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 reader.onerror = (e) => {
                     loadedAudioArrayBuffer = null;
-                    updateStatus(`Error loading audio file: ${file.name}. Error: ${e.target.error}`);
-                    console.error(`Error loading audio file: ${file.name}`, e.target.error);
+                    handleError(`Loading audio file: ${file.name}. Details: ${e.target.error.message || e.target.error}`, false);
                 };
                 reader.readAsArrayBuffer(file);
             } else {
@@ -176,15 +196,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (addEffectToSequenceBtn) {
         addEffectToSequenceBtn.addEventListener('click', () => {
             if (!newEffectTypeInput || !newEffectDurationFramesInput) {
-                console.error("Effect type or duration input elements not found.");
-                updateStatus("Error: UI elements for adding effects are missing.");
+                // handleError already logs to console. No separate console.error needed.
+                handleError("UI elements for adding effects are missing.", false);
                 return;
             }
             const effectType = newEffectTypeInput.value;
             const durationFrames = parseInt(newEffectDurationFramesInput.value, 10);
             if (isNaN(durationFrames) || durationFrames <= 0) {
-                updateStatus("Error: Please enter a valid positive number for frame duration.");
-                alert("Error: Please enter a valid positive number for frame duration.");
+                handleError("Please enter a valid positive number for frame duration.", true);
                 return;
             }
             effectSequence.push({ type: effectType, frames: durationFrames });
@@ -217,13 +236,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             updateStatus(`Image "${file.name}" loaded.`);
                             drawTextOnCanvas();
                         } else {
-                            console.error("One or more canvas elements (previewCanvas, originalPreviewCanvas, ctx, originalCtx, previewArea) are missing.");
-                            updateStatus("Error: Canvas elements missing, cannot display image.");
+                            // handleError already logs to console.
+                            handleError("Canvas elements missing, cannot display image. One or more of: previewCanvas, originalPreviewCanvas, ctx, originalCtx, previewArea.", false);
                             loadedImage = null;
                         }
                     };
                     loadedImage.onerror = () => {
-                        updateStatus(`Error loading image: ${file.name}`);
+                        // handleError already logs to console.
+                        handleError(`Loading image: ${file.name}`, false);
                         loadedImage = null;
                         if (previewArea) previewArea.style.display = 'none';
                     };
@@ -351,8 +371,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (!previewCanvas || !ctx) {
-            console.error("drawTextOnCanvas: previewCanvas or ctx is missing.");
-            updateStatus("Error: Preview canvas not available for drawing text.");
+            // handleError already logs to console.
+            handleError("Preview canvas or context not available for drawing text.", false);
             return;
         }
 
@@ -456,26 +476,22 @@ document.addEventListener('DOMContentLoaded', () => {
         generateBtn.addEventListener('click', () => {
             console.log("[Diag] Generate button clicked.");
             if (!loadedImage) {
-                updateStatus("Error: Please upload an image first.");
-                alert("Error: Please upload an image first.");
+                handleError("Please upload an image first.", true);
                 return;
             }
             if (!durationInput || !fpsInput) {
-                updateStatus("Error: Duration or FPS input elements are missing. Cannot generate video.");
-                console.error("Duration or FPS input elements are missing.");
-                alert("Error: Duration or FPS input elements are missing. Cannot generate video.");
+                // handleError already logs to console.
+                handleError("Duration or FPS input elements are missing. Cannot generate video.", true);
                 return;
             }
             const duration = parseFloat(durationInput.value);
             const fps = parseInt(fpsInput.value, 10);
             if (isNaN(duration) || duration <= 0) {
-                updateStatus("Error: Please enter a valid positive duration.");
-                alert("Error: Please enter a valid positive duration.");
+                handleError("Please enter a valid positive duration.", true);
                 return;
             }
             if (isNaN(fps) || fps <= 0) {
-                updateStatus("Error: Please enter a valid positive FPS.");
-                alert("Error: Please enter a valid positive FPS.");
+                handleError("Please enter a valid positive FPS.", true);
                 return;
             }
             console.log("[Diag] Calling generateVideoWithMediaRecorder()...");
@@ -490,19 +506,18 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("[Diag][MediaRecorder] Entered generateVideoWithMediaRecorder function.");
 
         if (!loadedImage) {
-            updateStatus("Error: Please upload an image first.");
-            alert("Please upload an image first.");
+            handleError("Please upload an image first.", true); // Already handled by caller, but good for direct calls
             return;
         }
         if (!durationInput || !fpsInput || !previewCanvas || !downloadLink || !generateBtn) {
-            updateStatus("Error: Critical elements for MediaRecorder video generation are missing from the page.");
-            console.error("Critical elements for MediaRecorder (durationInput, fpsInput, previewCanvas, downloadLink, generateBtn) are missing.");
+            // handleError already logs to console.
+            handleError("Critical elements for MediaRecorder video generation are missing from the page.", false);
             if (generateBtn) generateBtn.disabled = false; // Re-enable if it exists
             return;
         }
         if (!ctx) { // ctx is derived from previewCanvas, but check explicitly as it's vital for drawing
-             updateStatus("Error: Canvas context (ctx) is not available for MediaRecorder. Cannot draw frames.");
-             console.error("Canvas context (ctx) is not available for MediaRecorder.");
+             // handleError already logs to console.
+             handleError("Canvas context (ctx) is not available for MediaRecorder. Cannot draw frames.", false);
              if (generateBtn) generateBtn.disabled = false;
              return;
         }
@@ -510,18 +525,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const durationSec = parseFloat(durationInput.value);
         const fpsVal = parseInt(fpsInput.value, 10);
 
-        if (isNaN(durationSec) || durationSec <= 0) { updateStatus("Error: Invalid duration."); alert("Error: Invalid duration."); return; }
-        if (isNaN(fpsVal) || fpsVal <= 0) { updateStatus("Error: Invalid FPS."); alert("Error: Invalid FPS."); return; }
+        // These checks are also in the caller, but good for robustness if this function is called directly elsewhere
+        if (isNaN(durationSec) || durationSec <= 0) { handleError("Invalid duration.", true); return; }
+        if (isNaN(fpsVal) || fpsVal <= 0) { handleError("Invalid FPS.", true); return; }
 
         if (!previewCanvas.captureStream) {
-            updateStatus("Error: Browser does not support canvas.captureStream(). Try a different browser like Chrome or Firefox.");
-            alert("Error: Browser does not support canvas.captureStream().");
+            handleError("Browser does not support canvas.captureStream(). Try a different browser like Chrome or Firefox.", true);
             if (generateBtn) generateBtn.disabled = false;
             return;
         }
         if (!window.MediaRecorder) {
-            updateStatus("Error: Browser does not support MediaRecorder API. Try a different browser like Chrome or Firefox.");
-            alert("Error: Browser does not support MediaRecorder API.");
+            handleError("Browser does not support MediaRecorder API. Try a different browser like Chrome or Firefox.", true);
             if (generateBtn) generateBtn.disabled = false;
             return;
         }
@@ -532,8 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (!supportedMimeType) {
-            updateStatus("Error: No supported MIME type found for MediaRecorder (tried WebM and MP4).");
-            alert("Error: No supported MIME type found for MediaRecorder. Your browser may not support common video recording formats.");
+            handleError("No supported MIME type found for MediaRecorder (tried WebM and MP4). Your browser may not support common video recording formats.", true);
             if (generateBtn) generateBtn.disabled = false;
             return;
         }
@@ -577,11 +590,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             console.log("[Diag][MediaRecorder] Audio track created successfully:", audioTrack);
                         } else {
                             console.warn("[Diag][MediaRecorder] Could not get audio track from mediaStreamAudioDestinationNode.");
-                            updateStatus("Warning: Could not process audio track. Video will be silent.");
+                            updateStatus("Warning: Could not process audio track. Video will be silent."); // This is a warning, not an error. Keep as is or use a new handleWarning. For now, keep.
                         }
                     } catch (audioDecodeError) {
-                        console.error("[Diag][MediaRecorder] Error decoding audio data:", audioDecodeError);
-                        updateStatus(`Error decoding audio: ${audioDecodeError.message}. Video will be generated without audio.`);
+                        // handleError already logs to console.
+                        handleError(`Decoding audio: ${audioDecodeError.message}. Video will be generated without audio.`, false);
                     }
                 }
             } else {
@@ -602,6 +615,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log("[Diag][MediaRecorder] Using video-only stream.");
                 }
             } else {
+                // This error is critical and should be thrown to be caught by the main try/catch,
+                // which will then call handleError. The console.error here is for diagnostics before the throw.
                 console.error("[Diag][MediaRecorder] previewCanvas.captureStream() failed or returned no video tracks.");
                 throw new Error("Failed to capture video stream from canvas. Ensure canvas is visible and valid.");
             }
@@ -612,9 +627,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 mediaRecorder = new MediaRecorder(finalStream, options);
             } catch (recorderError) {
+                // This error is critical and should be thrown to be caught by the main try/catch.
+                // The console.error here is for diagnostics before the throw.
                 console.error("[Diag][MediaRecorder] Error instantiating MediaRecorder:", recorderError);
-                updateStatus(`Error creating MediaRecorder: ${recorderError.name} - ${recorderError.message}. Try a different browser or check supported codecs.`);
-                throw recorderError;
+                throw recorderError; // Re-throw to be handled by the outer try-catch which calls handleError
             }
 
             mediaRecorder.ondataavailable = (event) => {
@@ -628,8 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (renderLoopId) { cancelAnimationFrame(renderLoopId); renderLoopId = null; }
 
                 if (recordedChunks.length === 0) {
-                    console.error("[Diag][MediaRecorder] No data chunks recorded.");
-                    updateStatus("Error: No video data recorded. Output might be empty.");
+                    handleError("No video data recorded. Output might be empty.", false);
                 } else {
                     const videoBlob = new Blob(recordedChunks, { type: supportedMimeType });
                     const videoUrl = URL.createObjectURL(videoBlob);
@@ -640,8 +655,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         downloadLink.style.display = 'block';
                         downloadLink.textContent = `Download Video (${fileExtension.toUpperCase()} - MediaRecorder)`;
                     } else {
-                        console.error("Download link element not found after recording, though it was expected.");
-                        updateStatus("Video ready, but download link element is missing.");
+                        // This is an internal issue, user doesn't need an alert.
+                        handleError("Download link element not found after recording, though it was expected.", false);
                     }
                     updateStatus("MediaRecorder video ready for download!");
                 }
@@ -649,9 +664,9 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             mediaRecorder.onerror = (event) => {
-                console.error("[Diag][MediaRecorder] onerror:", event.error || event);
                 const errorDetails = event.error ? `${event.error.name}: ${event.error.message}` : 'Unknown MediaRecorder error';
-                updateStatus(`MediaRecorder error: ${errorDetails}. Check console.`);
+                // handleError already logs to console.
+                handleError(`MediaRecorder error: ${errorDetails}. Check console.`, false);
                 if (renderLoopId) { cancelAnimationFrame(renderLoopId); renderLoopId = null; }
                 // No need to check generateBtn here, finally block handles it.
             };
@@ -722,11 +737,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }, (durationSec * 1000) + 500);
 
         } catch (error) {
-            console.error("[Diag][MediaRecorder] Error during MediaRecorder setup or operation:", error);
-            updateStatus(`MediaRecorder Error: ${error.message || String(error)}`);
+            // handleError already logs to console. The console.error here is for additional diagnostic before structured handling.
+            console.error("[Diag][MediaRecorder] Error during MediaRecorder setup or operation (outer catch):", error);
+            handleError(`MediaRecorder setup or operation: ${error.message || String(error)}`, true);
             if (renderLoopId) { cancelAnimationFrame(renderLoopId); renderLoopId = null; }
             if (mediaRecorder && mediaRecorder.state === "recording") {
-                 try { mediaRecorder.stop(); } catch (e) { console.error("Error stopping media recorder during catch:", e); }
+                 try { mediaRecorder.stop(); } catch (e) {
+                    // handleError already logs to console.
+                    console.error("[Diag][MediaRecorder] Error stopping media recorder during catch:", e);
+                    handleError(`Stopping media recorder during catch: ${e.message}`, false); }
             }
         } finally {
             console.log("[Diag][MediaRecorder] Entering finally block.");
