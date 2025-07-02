@@ -102,9 +102,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewArea = document.getElementById('previewArea');
     const originalPreviewCanvas = document.getElementById('originalPreviewCanvas');
     const originalCtx = originalPreviewCanvas.getContext('2d');
+    const audioUpload = document.getElementById('audioUpload'); // Added for audio
 
     let loadedImage = null;
+    let loadedAudioArrayBuffer = null; // Added for audio
     let effectSequence = [];
+
+    if (audioUpload) {
+        audioUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    loadedAudioArrayBuffer = e.target.result;
+                    updateStatus(`Audio file "${file.name}" loaded.`);
+                    console.log(`Audio file "${file.name}" loaded, size: ${loadedAudioArrayBuffer.byteLength} bytes.`);
+                };
+                reader.onerror = (e) => {
+                    loadedAudioArrayBuffer = null;
+                    updateStatus(`Error loading audio file: ${file.name}. Error: ${e.target.error}`);
+                    console.error(`Error loading audio file: ${file.name}`, e.target.error);
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                loadedAudioArrayBuffer = null;
+                updateStatus("Audio selection cleared.");
+                console.log("Audio selection cleared.");
+            }
+        });
+    }
 
     function renderEffectSequenceList() {
         if (!effectSequenceListContainer) return;
@@ -424,27 +450,83 @@ document.addEventListener('DOMContentLoaded', () => {
         let renderLoopId;
 
         try {
-            console.log(`[Diag][MediaRecorder] Attempting to capture stream with ${fpsVal} FPS.`);
-            const stream = previewCanvas.captureStream(fpsVal);
-            if (stream) {
-                console.log(`[Diag][MediaRecorder] Canvas stream captured. Stream ID: ${stream.id}, Active: ${stream.active}`);
-                const videoTracks = stream.getVideoTracks();
-                if (videoTracks.length > 0) {
-                    const track = videoTracks[0];
-                    console.log(`[Diag][MediaRecorder] Video Track 0: ID: ${track.id}, Kind: ${track.kind}, Label: "${track.label}", ReadyState: ${track.readyState}, Muted: ${track.muted}, Enabled: ${track.enabled}`);
+            let audioTrack = null;
+            if (loadedAudioArrayBuffer) {
+                console.log("[Diag][MediaRecorder] Audio data found, attempting to decode and add to stream.");
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                let decodedAudioBuffer;
+                try {
+                    decodedAudioBuffer = await audioContext.decodeAudioData(loadedAudioArrayBuffer.slice(0)); // Use slice(0) to create a copy
+                } catch (audioDecodeError) {
+                    console.error("[Diag][MediaRecorder] Error decoding audio data:", audioDecodeError);
+                    updateStatus(`Error decoding audio: ${audioDecodeError.message}. Video will be generated without audio.`);
+                    // loadedAudioArrayBuffer = null; // Clear corrupted/unusable buffer. Keep if user might retry with fixed file? For now, let's clear.
+                    audioTrack = null;
+                }
+
+                if (decodedAudioBuffer) {
+                    const audioSourceNode = audioContext.createBufferSource();
+                    audioSourceNode.buffer = decodedAudioBuffer;
+
+                    if (decodedAudioBuffer.duration < durationSec) {
+                        audioSourceNode.loop = true;
+                        console.log(`[Diag][MediaRecorder] Audio duration (${decodedAudioBuffer.duration}s) is shorter than video duration (${durationSec}s). Looping audio.`);
+                    } else {
+                        audioSourceNode.loop = false;
+                        console.log(`[Diag][MediaRecorder] Audio duration (${decodedAudioBuffer.duration}s) is sufficient for video duration (${durationSec}s). Not looping audio.`);
+                    }
+
+                    const mediaStreamAudioDestinationNode = audioContext.createMediaStreamDestination();
+                    audioSourceNode.connect(mediaStreamAudioDestinationNode);
+                    audioSourceNode.start(0);
+
+                    if (mediaStreamAudioDestinationNode.stream.getAudioTracks().length > 0) {
+                        audioTrack = mediaStreamAudioDestinationNode.stream.getAudioTracks()[0];
+                        console.log("[Diag][MediaRecorder] Audio track created successfully:", audioTrack);
+                    } else {
+                        console.warn("[Diag][MediaRecorder] Could not get audio track from mediaStreamAudioDestinationNode.");
+                        updateStatus("Warning: Could not process audio track. Video will be silent.");
+                        // Ensure audioTrack is null if it couldn't be obtained
+                        audioTrack = null;
+                    }
                 } else {
-                    console.warn("[Diag][MediaRecorder] Stream captured but contains no video tracks.");
+                    // This block will be hit if decodeAudioData failed and set decodedAudioBuffer to undefined
+                    console.log("[Diag][MediaRecorder] Audio decoding failed or no audio buffer. Proceeding with video-only recording.");
+                    audioTrack = null; // Ensure audioTrack is null
                 }
             } else {
-                console.error("[Diag][MediaRecorder] previewCanvas.captureStream() returned null or undefined.");
-                throw new Error("Failed to capture stream from canvas.");
+                console.log("[Diag][MediaRecorder] No audio data loaded, proceeding with video-only recording.");
+                audioTrack = null; // Ensure audioTrack is null
+            }
+
+            console.log(`[Diag][MediaRecorder] Attempting to capture video stream with ${fpsVal} FPS.`);
+            const videoStream = previewCanvas.captureStream(fpsVal);
+            let finalStream;
+
+            if (videoStream && videoStream.getVideoTracks().length > 0) {
+                const videoTrack = videoStream.getVideoTracks()[0];
+                console.log(`[Diag][MediaRecorder] Video Track 0: ID: ${videoTrack.id}, Kind: ${videoTrack.kind}, Label: "${videoTrack.label}", ReadyState: ${videoTrack.readyState}, Muted: ${videoTrack.muted}, Enabled: ${videoTrack.enabled}`);
+                if (audioTrack) {
+                    finalStream = new MediaStream([videoTrack, audioTrack]);
+                    console.log("[Diag][MediaRecorder] Combined video and audio tracks into a new MediaStream.");
+                } else {
+                    finalStream = videoStream;
+                    console.log("[Diag][MediaRecorder] Using video-only stream.");
+                }
+            } else {
+                console.error("[Diag][MediaRecorder] previewCanvas.captureStream() returned null, undefined, or a stream with no video tracks.");
+                throw new Error("Failed to capture video stream from canvas.");
             }
 
             const options = { mimeType: supportedMimeType, videoBitsPerSecond: 2500000 };
+            if (audioTrack) {
+                // options.audioBitsPerSecond = 128000; // Example: set audio bitrate if desired
+                console.log("[Diag][MediaRecorder] Audio track present, MediaRecorder will attempt to record audio.");
+            }
             console.log("[Diag][MediaRecorder] MediaRecorder options:", options);
 
             console.log("[Diag][MediaRecorder] Instantiating MediaRecorder...");
-            mediaRecorder = new MediaRecorder(stream, options);
+            mediaRecorder = new MediaRecorder(finalStream, options);
             console.log(`[Diag][MediaRecorder] MediaRecorder instantiated. Initial state: ${mediaRecorder.state}`);
 
             mediaRecorder.ondataavailable = (event) => {
