@@ -1,3 +1,14 @@
+import {
+    IMAGE_FILTER_NONE,
+    UI_EFFECT_REMOVE_BUTTON_MARGIN_PX,
+    UI_DEFAULT_EFFECT_DURATION_FRAMES,
+    DEFAULT_TEXT_MARGIN,
+    UI_TEXT_HEIGHT_APPROX_MULTIPLIER,
+    UI_TEXT_WIDTH_APPROX_RATIO_DENOMINATOR,
+    FONT_SIZE_FALLBACK_PX,
+    TEXT_BG_PADDING_PX,
+    DEFAULT_FONT_SIZE_PX
+} from './constants.js';
 import { handleError, updateStatus } from './utils.js';
 import { applyImageFilter } from './imageFilters.js';
 import { generateVideoWithMediaRecorder } from './videoGenerator.js';
@@ -92,7 +103,7 @@ export function initializeUI() {
             input.addEventListener(eventType, () => {
                 // When an input changes, we need to redraw the image with the current filter, then the text.
                 if (loadedImage && previewCanvas && ctx) {
-                    applyImageFilter(ctx, previewCanvas, loadedImage, imageFilterInput ? imageFilterInput.value : 'none');
+                    applyImageFilter(ctx, previewCanvas, loadedImage, imageFilterInput ? imageFilterInput.value : IMAGE_FILTER_NONE);
                     drawTextOnCanvasInternal(); // Internal call that doesn't re-apply filter
                     updateStatus("Preview updated due to input change.", statusMessages);
                 }
@@ -151,7 +162,7 @@ function renderEffectSequenceList() {
         li.textContent = `${effectItem.type.charAt(0).toUpperCase() + effectItem.type.slice(1)} - ${effectItem.frames} frames`;
         const removeBtn = document.createElement('button');
         removeBtn.textContent = 'Remove';
-        removeBtn.style.marginLeft = '10px';
+        removeBtn.style.marginLeft = `${UI_EFFECT_REMOVE_BUTTON_MARGIN_PX}px`;
         removeBtn.dataset.index = index;
         removeBtn.addEventListener('click', (event) => {
             const indexToRemove = parseInt(event.target.dataset.index, 10);
@@ -178,7 +189,7 @@ function handleAddEffectToSequence() {
     }
     effectSequence.push({ type: effectType, frames: durationFrames });
     renderEffectSequenceList();
-    if (newEffectDurationFramesInput) newEffectDurationFramesInput.value = '24'; // Reset
+    if (newEffectDurationFramesInput) newEffectDurationFramesInput.value = UI_DEFAULT_EFFECT_DURATION_FRAMES.toString(); // Reset
     updateStatus(`Effect "${effectType}" for ${durationFrames} frames added to sequence.`, statusMessages);
 }
 
@@ -199,7 +210,7 @@ function handleImageUpload(event) {
                     previewArea.style.display = 'flex';
                     updateStatus(`Image "${file.name}" loaded.`, statusMessages);
                     // Initial draw with current filter and text
-                    applyImageFilter(ctx, previewCanvas, loadedImage, imageFilterInput ? imageFilterInput.value : 'none');
+                    applyImageFilter(ctx, previewCanvas, loadedImage, imageFilterInput ? imageFilterInput.value : IMAGE_FILTER_NONE);
                     drawTextOnCanvasInternal(); // Draws text without re-applying filter
                 } else {
                     handleError("Canvas elements missing, cannot display image.", false);
@@ -234,29 +245,29 @@ function drawTextOnCanvasInternal() {
     }
 
     const text = textInput ? textInput.value : "Text input missing";
-    const fontSize = fontSizeInput ? fontSizeInput.value : "30px";
+    const fontSize = fontSizeInput ? fontSizeInput.value : `${DEFAULT_FONT_SIZE_PX}px`;
     const fontFamily = fontFamilyInput ? (fontFamilyInput.value || 'sans-serif') : 'sans-serif';
-    const textColor = textColorInput ? textColorInput.value : "#FFFFFF";
+    const textColor = textColorInput ? textColorInput.value : "#FFFFFF"; // TODO: Consider making this a constant if it's truly fixed
     const useBgColor = enableBgColorCheckbox ? enableBgColorCheckbox.checked : false;
-    const textBgColor = bgColorInput ? bgColorInput.value : "#000000";
+    const textBgColor = bgColorInput ? bgColorInput.value : "#000000"; // TODO: Consider making this a constant
     const position = textPositionInput ? textPositionInput.value : "center";
 
     ctx.font = `${fontSize} ${fontFamily}`;
     ctx.fillStyle = textColor;
 
     let x, y;
-    const canvasWidth = previewCanvas.width, canvasHeight = previewCanvas.height, textMargin = 20;
+    const canvasWidth = previewCanvas.width, canvasHeight = previewCanvas.height;
 
     switch (position) {
-        case 'top_left': x = textMargin; y = textMargin; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; break;
-        case 'top_center': x = canvasWidth / 2; y = textMargin; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; break;
-        case 'top_right': x = canvasWidth - textMargin; y = textMargin; ctx.textAlign = 'right'; ctx.textBaseline = 'top'; break;
-        case 'center_left': x = textMargin; y = canvasHeight / 2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; break;
+        case 'top_left': x = DEFAULT_TEXT_MARGIN; y = DEFAULT_TEXT_MARGIN; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; break;
+        case 'top_center': x = canvasWidth / 2; y = DEFAULT_TEXT_MARGIN; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; break;
+        case 'top_right': x = canvasWidth - DEFAULT_TEXT_MARGIN; y = DEFAULT_TEXT_MARGIN; ctx.textAlign = 'right'; ctx.textBaseline = 'top'; break;
+        case 'center_left': x = DEFAULT_TEXT_MARGIN; y = canvasHeight / 2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; break;
         case 'center': x = canvasWidth / 2; y = canvasHeight / 2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; break;
-        case 'center_right': x = canvasWidth - textMargin; y = canvasHeight / 2; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; break;
-        case 'bottom_left': x = textMargin; y = canvasHeight - textMargin; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; break;
-        case 'bottom_center': x = canvasWidth / 2; y = canvasHeight - textMargin; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; break;
-        case 'bottom_right': x = canvasWidth - textMargin; y = canvasHeight - textMargin; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; break;
+        case 'center_right': x = canvasWidth - DEFAULT_TEXT_MARGIN; y = canvasHeight / 2; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; break;
+        case 'bottom_left': x = DEFAULT_TEXT_MARGIN; y = canvasHeight - DEFAULT_TEXT_MARGIN; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; break;
+        case 'bottom_center': x = canvasWidth / 2; y = canvasHeight - DEFAULT_TEXT_MARGIN; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; break;
+        case 'bottom_right': x = canvasWidth - DEFAULT_TEXT_MARGIN; y = canvasHeight - DEFAULT_TEXT_MARGIN; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; break;
         default: x = canvasWidth / 2; y = canvasHeight / 2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     }
 
@@ -266,10 +277,10 @@ function drawTextOnCanvasInternal() {
         let actualWidth = textMetrics.width;
         if (isNaN(actualHeight) || isNaN(actualWidth) || !isFinite(actualHeight) || !isFinite(actualWidth)) {
             const sizeMatch = fontSize.match(/(\d+)/);
-            actualHeight = sizeMatch ? parseInt(sizeMatch[1], 10) * 1.2 : 50 * 1.2;
-            actualWidth = textMetrics.width || (text.length * (actualHeight / 1.5));
+            actualHeight = sizeMatch ? parseInt(sizeMatch[1], 10) * UI_TEXT_HEIGHT_APPROX_MULTIPLIER : FONT_SIZE_FALLBACK_PX * UI_TEXT_HEIGHT_APPROX_MULTIPLIER;
+            actualWidth = textMetrics.width || (text.length * (actualHeight / UI_TEXT_WIDTH_APPROX_RATIO_DENOMINATOR));
         }
-        const padding = 10;
+        const padding = TEXT_BG_PADDING_PX;
         let bgX = x;
         let bgY = y;
 
@@ -304,7 +315,7 @@ function handleClearBgColor() {
     updateStatus("Text background color disabled.", statusMessages);
     // Redraw: apply current image filter, then text
     if (loadedImage && previewCanvas && ctx) {
-        applyImageFilter(ctx, previewCanvas, loadedImage, imageFilterInput ? imageFilterInput.value : 'none');
+        applyImageFilter(ctx, previewCanvas, loadedImage, imageFilterInput ? imageFilterInput.value : IMAGE_FILTER_NONE);
         drawTextOnCanvasInternal();
     }
 }

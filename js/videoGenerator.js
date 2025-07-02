@@ -1,4 +1,12 @@
 import { handleError, updateStatus } from './utils.js'; // Assuming utils.js is in the same directory
+import {
+    IMAGE_FILTER_NONE,
+    VIDEO_BITS_PER_SECOND,
+    AUDIO_PLAYBACK_START_TIME_MS,
+    MEDIA_RECORDER_TIMESLICE_MS,
+    MEDIA_RECORDER_TIMEOUT_SECONDS_TO_MS_MULTIPLIER,
+    MEDIA_RECORDER_TIMEOUT_BUFFER_MS
+} from './constants.js';
 
 export async function generateVideoWithMediaRecorder(
     loadedImage,
@@ -95,7 +103,7 @@ export async function generateVideoWithMediaRecorder(
 
                     const mediaStreamAudioDestinationNode = audioContext.createMediaStreamDestination();
                     audioSourceNode.connect(mediaStreamAudioDestinationNode);
-                    audioSourceNode.start(0);
+                    audioSourceNode.start(AUDIO_PLAYBACK_START_TIME_MS);
 
                     if (mediaStreamAudioDestinationNode.stream.getAudioTracks().length > 0) {
                         audioTrack = mediaStreamAudioDestinationNode.stream.getAudioTracks()[0];
@@ -130,7 +138,7 @@ export async function generateVideoWithMediaRecorder(
             throw new Error("Failed to capture video stream from canvas. Ensure canvas is visible and valid.");
         }
 
-        const options = { mimeType: supportedMimeType, videoBitsPerSecond: 2500000 };
+        const options = { mimeType: supportedMimeType, videoBitsPerSecond: VIDEO_BITS_PER_SECOND };
         console.log("[Diag][MediaRecorder] MediaRecorder options:", options);
 
         try {
@@ -180,7 +188,7 @@ export async function generateVideoWithMediaRecorder(
 
         function getFilterForFrameFromSequence(frameIndex, sequence) {
             if (!useSequence) {
-                return imageFilterInput ? imageFilterInput.value : 'none';
+                return imageFilterInput ? imageFilterInput.value : IMAGE_FILTER_NONE;
             }
             let cumulativeFrames = 0;
             for (const effect of sequence) {
@@ -189,7 +197,7 @@ export async function generateVideoWithMediaRecorder(
                 }
                 cumulativeFrames += effect.frames;
             }
-            return sequence.length > 0 ? sequence[sequence.length -1].type : 'none';
+            return sequence.length > 0 ? sequence[sequence.length -1].type : IMAGE_FILTER_NONE;
         }
 
         if (useSequence) {
@@ -226,7 +234,7 @@ export async function generateVideoWithMediaRecorder(
             }
         }
 
-        mediaRecorder.start(100);
+        mediaRecorder.start(MEDIA_RECORDER_TIMESLICE_MS);
         console.log(`[Diag][MediaRecorder] MediaRecorder started. State: ${mediaRecorder.state}`);
         updateStatus("Recording in progress...", statusMessages);
 
@@ -242,7 +250,7 @@ export async function generateVideoWithMediaRecorder(
                 renderLoopId = null;
                 console.log("[Diag][MediaRecorder] rAF cancelled by fallback timeout.");
             }
-        }, (durationSec * 1000) + 500);
+        }, (durationSec * MEDIA_RECORDER_TIMEOUT_SECONDS_TO_MS_MULTIPLIER) + MEDIA_RECORDER_TIMEOUT_BUFFER_MS);
 
     } catch (error) {
         console.error("[Diag][MediaRecorder] Error during MediaRecorder setup or operation (outer catch):", error);
