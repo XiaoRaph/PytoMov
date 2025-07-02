@@ -87,7 +87,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusMessages = document.getElementById('statusMessages');
     const downloadLink = document.getElementById('downloadLink');
     const previewCanvas = document.getElementById('previewCanvas');
-    const ctx = previewCanvas.getContext('2d');
+    let ctx = null;
+    if (previewCanvas) {
+        ctx = previewCanvas.getContext('2d');
+    } else {
+        console.error("Element with ID 'previewCanvas' not found. Preview will not work.");
+    }
     const bgColorInput = document.getElementById('bgColorInput');
     const clearBgColorBtn = document.getElementById('clearBgColorBtn');
     const enableBgColorCheckbox = document.getElementById('enableBgColor');
@@ -101,11 +106,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const previewArea = document.getElementById('previewArea');
     const originalPreviewCanvas = document.getElementById('originalPreviewCanvas');
-    const originalCtx = originalPreviewCanvas.getContext('2d');
-    const audioUpload = document.getElementById('audioUpload'); // Added for audio
+    let originalCtx = null;
+    if (originalPreviewCanvas) {
+        originalCtx = originalPreviewCanvas.getContext('2d');
+    } else {
+        console.error("Element with ID 'originalPreviewCanvas' not found. Original image preview will not work.");
+    }
+    const audioUpload = document.getElementById('audioUpload');
 
     let loadedImage = null;
-    let loadedAudioArrayBuffer = null; // Added for audio
+    let loadedAudioArrayBuffer = null;
     let effectSequence = [];
 
     if (audioUpload) {
@@ -133,7 +143,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderEffectSequenceList() {
-        if (!effectSequenceListContainer) return;
+        if (!effectSequenceListContainer) {
+            console.warn("renderEffectSequenceList: effectSequenceListContainer not found.");
+            return;
+        }
         effectSequenceListContainer.innerHTML = '';
         if (effectSequence.length === 0) {
             effectSequenceListContainer.innerHTML = '<p><em>No effects added to sequence yet. Video will be based on total duration using \'None\' filter.</em></p>';
@@ -158,10 +171,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         effectSequenceListContainer.appendChild(ol);
     }
-    renderEffectSequenceList();
+    renderEffectSequenceList(); // Call it once to initialize the list display
 
     if (addEffectToSequenceBtn) {
         addEffectToSequenceBtn.addEventListener('click', () => {
+            if (!newEffectTypeInput || !newEffectDurationFramesInput) {
+                console.error("Effect type or duration input elements not found.");
+                updateStatus("Error: UI elements for adding effects are missing.");
+                return;
+            }
             const effectType = newEffectTypeInput.value;
             const durationFrames = parseInt(newEffectDurationFramesInput.value, 10);
             if (isNaN(durationFrames) || durationFrames <= 0) {
@@ -171,9 +189,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             effectSequence.push({ type: effectType, frames: durationFrames });
             renderEffectSequenceList();
-            newEffectDurationFramesInput.value = '24';
+            if (newEffectDurationFramesInput) newEffectDurationFramesInput.value = '24'; // Reset after adding
             updateStatus(`Effect "${effectType}" for ${durationFrames} frames added to sequence.`);
         });
+    } else {
+        console.warn("Element with ID 'addEffectToSequenceBtn' not found. Adding effects to sequence will not work.");
+        if (newEffectTypeInput) newEffectTypeInput.disabled = true;
+        if (newEffectDurationFramesInput) newEffectDurationFramesInput.disabled = true;
     }
 
     if (imageUpload) {
@@ -184,46 +206,68 @@ document.addEventListener('DOMContentLoaded', () => {
                 reader.onload = (e) => {
                     loadedImage = new Image();
                     loadedImage.onload = () => {
-                        originalPreviewCanvas.width = loadedImage.width;
-                        originalPreviewCanvas.height = loadedImage.height;
-                        previewCanvas.width = loadedImage.width;
-                        previewCanvas.height = loadedImage.height;
-                        originalCtx.clearRect(0, 0, originalPreviewCanvas.width, originalPreviewCanvas.height);
-                        originalCtx.drawImage(loadedImage, 0, 0);
-                        previewArea.style.display = 'flex';
-                        updateStatus(`Image "${file.name}" loaded.`);
-                        drawTextOnCanvas();
+                        if (originalPreviewCanvas && previewCanvas && originalCtx && ctx && previewArea) {
+                            originalPreviewCanvas.width = loadedImage.width;
+                            originalPreviewCanvas.height = loadedImage.height;
+                            previewCanvas.width = loadedImage.width;
+                            previewCanvas.height = loadedImage.height;
+                            originalCtx.clearRect(0, 0, originalPreviewCanvas.width, originalPreviewCanvas.height);
+                            originalCtx.drawImage(loadedImage, 0, 0);
+                            previewArea.style.display = 'flex';
+                            updateStatus(`Image "${file.name}" loaded.`);
+                            drawTextOnCanvas();
+                        } else {
+                            console.error("One or more canvas elements (previewCanvas, originalPreviewCanvas, ctx, originalCtx, previewArea) are missing.");
+                            updateStatus("Error: Canvas elements missing, cannot display image.");
+                            loadedImage = null;
+                        }
                     };
                     loadedImage.onerror = () => {
                         updateStatus(`Error loading image: ${file.name}`);
                         loadedImage = null;
-                        previewArea.style.display = 'none';
+                        if (previewArea) previewArea.style.display = 'none';
                     };
                     loadedImage.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
             } else {
                 loadedImage = null;
-                previewArea.style.display = 'none';
-                originalCtx.clearRect(0, 0, originalPreviewCanvas.width, originalPreviewCanvas.height);
-                ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+                if (previewArea) previewArea.style.display = 'none';
+                if (originalCtx && originalPreviewCanvas) originalCtx.clearRect(0, 0, originalPreviewCanvas.width, originalPreviewCanvas.height);
+                if (ctx && previewCanvas) ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
                 updateStatus("Image selection cleared.");
             }
         });
+    } else {
+        console.error("Element with ID 'imageUpload' not found. Image uploading will not work.");
     }
 
     function updateStatus(message) {
-        statusMessages.textContent = message;
-        console.log(message);
+        if (statusMessages) {
+            statusMessages.textContent = message;
+        }
+        console.log(message); // Keep console log as a fallback
     }
 
     function applyImageFilter(forceFilterType = null) {
-        if (!loadedImage || !previewCanvas || !ctx) return;
+        if (!loadedImage) {
+            // console.debug("applyImageFilter: No loaded image, returning.");
+            return;
+        }
+        if (!previewCanvas || !ctx) {
+            console.error("applyImageFilter: previewCanvas or ctx is missing.");
+            return;
+        }
+        // Ensure image is drawn on canvas before filter application
         ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
         ctx.drawImage(loadedImage, 0, 0, previewCanvas.width, previewCanvas.height);
-        const filterToApply = forceFilterType !== null ? forceFilterType : imageFilterInput.value;
+
+        const currentFilterValue = imageFilterInput ? imageFilterInput.value : 'none';
+        const filterToApply = forceFilterType !== null ? forceFilterType : currentFilterValue;
+
         if (filterToApply === 'none') {
-            if (forceFilterType !== null) console.log("Forcing no filter for this frame.");
+            // if (forceFilterType !== null) console.log("Forcing no filter for this frame.");
+            // No actual filter to apply, image is already drawn.
             return;
         }
         const imageData = ctx.getImageData(0, 0, previewCanvas.width, previewCanvas.height);
@@ -302,128 +346,229 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawTextOnCanvas(overrideFilter = null) {
-        if (!loadedImage) return;
-        if (!previewCanvas || !ctx) return;
-        applyImageFilter(overrideFilter);
-        const text = textInput.value;
-        const fontSize = fontSizeInput.value;
-        const fontFamily = fontFamilyInput.value || 'sans-serif';
-        const textColor = textColorInput.value;
-        const useBgColor = enableBgColorCheckbox.checked;
-        const textBgColor = bgColorInput.value;
-        const position = textPositionInput.value;
+        if (!loadedImage) {
+            // updateStatus("Cannot draw text: No image loaded."); // Optional: too noisy
+            return;
+        }
+        if (!previewCanvas || !ctx) {
+            console.error("drawTextOnCanvas: previewCanvas or ctx is missing.");
+            updateStatus("Error: Preview canvas not available for drawing text.");
+            return;
+        }
+
+        applyImageFilter(overrideFilter); // This will draw the image, then apply filter if any
+
+        const text = textInput ? textInput.value : "Text input missing";
+        const fontSize = fontSizeInput ? fontSizeInput.value : "30px";
+        const fontFamily = fontFamilyInput ? (fontFamilyInput.value || 'sans-serif') : 'sans-serif';
+        const textColor = textColorInput ? textColorInput.value : "#FFFFFF";
+        const useBgColor = enableBgColorCheckbox ? enableBgColorCheckbox.checked : false;
+        const textBgColor = bgColorInput ? bgColorInput.value : "#000000";
+        const position = textPositionInput ? textPositionInput.value : "center";
+
         ctx.font = `${fontSize} ${fontFamily}`;
         ctx.fillStyle = textColor;
+
         let x, y;
         const canvasWidth = previewCanvas.width, canvasHeight = previewCanvas.height, textMargin = 20;
+
         switch (position) {
-            case 'top_left': x=textMargin; y=textMargin; ctx.textAlign='left'; ctx.textBaseline='top'; break;
-            case 'top_center': x=canvasWidth/2; y=textMargin; ctx.textAlign='center'; ctx.textBaseline='top'; break;
-            case 'top_right': x=canvasWidth-textMargin; y=textMargin; ctx.textAlign='right'; ctx.textBaseline='top'; break;
-            case 'center_left': x=textMargin; y=canvasHeight/2; ctx.textAlign='left'; ctx.textBaseline='middle'; break;
-            case 'center': x=canvasWidth/2; y=canvasHeight/2; ctx.textAlign='center'; ctx.textBaseline='middle'; break;
-            case 'center_right': x=canvasWidth-textMargin; y=canvasHeight/2; ctx.textAlign='right'; ctx.textBaseline='middle'; break;
-            case 'bottom_left': x=textMargin; y=canvasHeight-textMargin; ctx.textAlign='left'; ctx.textBaseline='bottom'; break;
-            case 'bottom_center': x=canvasWidth/2; y=canvasHeight-textMargin; ctx.textAlign='center'; ctx.textBaseline='bottom'; break;
-            case 'bottom_right': x=canvasWidth-textMargin; y=canvasHeight-textMargin; ctx.textAlign='right'; ctx.textBaseline='bottom'; break;
-            default: x=canvasWidth/2; y=canvasHeight/2; ctx.textAlign='center'; ctx.textBaseline='middle';
+            case 'top_left': x = textMargin; y = textMargin; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; break;
+            case 'top_center': x = canvasWidth / 2; y = textMargin; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; break;
+            case 'top_right': x = canvasWidth - textMargin; y = textMargin; ctx.textAlign = 'right'; ctx.textBaseline = 'top'; break;
+            case 'center_left': x = textMargin; y = canvasHeight / 2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; break;
+            case 'center': x = canvasWidth / 2; y = canvasHeight / 2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; break;
+            case 'center_right': x = canvasWidth - textMargin; y = canvasHeight / 2; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; break;
+            case 'bottom_left': x = textMargin; y = canvasHeight - textMargin; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; break;
+            case 'bottom_center': x = canvasWidth / 2; y = canvasHeight - textMargin; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; break;
+            case 'bottom_right': x = canvasWidth - textMargin; y = canvasHeight - textMargin; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; break;
+            default: x = canvasWidth / 2; y = canvasHeight / 2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         }
-        if (useBgColor && textBgColor) {
+
+        if (useBgColor && textBgColor) { // textBgColor check is important if input is missing
             const textMetrics = ctx.measureText(text);
             let actualHeight = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
             let actualWidth = textMetrics.width;
-            if(isNaN(actualHeight)||isNaN(actualWidth)){
-                const sizeMatch = fontSize.match(/(\d+)/);
-                actualHeight = sizeMatch ? parseInt(sizeMatch[1],10)*1.2 : 50*1.2;
-                actualWidth = textMetrics.width || (text.length * (actualHeight/2));
+            // Check for NaN or Infinity which can occur if canvas is not properly sized or text is empty
+            if (isNaN(actualHeight) || isNaN(actualWidth) || !isFinite(actualHeight) || !isFinite(actualWidth)) {
+                const sizeMatch = fontSize.match(/(\d+)/); // Extract number from fontSize string
+                actualHeight = sizeMatch ? parseInt(sizeMatch[1], 10) * 1.2 : 50 * 1.2; // Default height based on font size
+                actualWidth = textMetrics.width || (text.length * (actualHeight / 1.5)); // Estimate width if not available
             }
-            const padding = 10; let bgX=x; let bgY=y;
-            if(ctx.textAlign==='center')bgX-=actualWidth/2; else if(ctx.textAlign==='right')bgX-=actualWidth;
-            if(ctx.textBaseline==='middle')bgY-=actualHeight/2; else if(ctx.textBaseline==='bottom')bgY-=actualHeight;
+            const padding = 10;
+            let bgX = x;
+            let bgY = y;
+
+            if (ctx.textAlign === 'center') bgX -= actualWidth / 2;
+            else if (ctx.textAlign === 'right') bgX -= actualWidth;
+
+            if (ctx.textBaseline === 'middle') bgY -= actualHeight / 2;
+            else if (ctx.textBaseline === 'bottom') bgY -= actualHeight;
+
             ctx.fillStyle = textBgColor;
-            ctx.fillRect(bgX-padding, bgY-padding, actualWidth+padding*2, actualHeight+padding*2);
-            ctx.fillStyle = textColor;
+            ctx.fillRect(bgX - padding, bgY - padding, actualWidth + (padding * 2), actualHeight + (padding * 2));
+            ctx.fillStyle = textColor; // Reset fillStyle for the text itself
         }
+
         ctx.fillText(text, x, y);
-        updateStatus("Preview updated.");
+        // updateStatus("Preview updated."); // Consider moving to specific user actions to avoid too frequent updates
     }
 
-    [textInput, fontSizeInput, textColorInput, fontFamilyInput, bgColorInput, enableBgColorCheckbox, textPositionInput, imageFilterInput].forEach(input => {
+    // Centralized event handling for dynamic preview updates
+    const inputsForPreviewUpdate = [
+        textInput, fontSizeInput, textColorInput, fontFamilyInput,
+        bgColorInput, enableBgColorCheckbox, textPositionInput, imageFilterInput
+    ];
+
+    inputsForPreviewUpdate.forEach(input => {
         if (input) {
             const eventType = (input.type === 'color' || input.type === 'checkbox' || input.tagName === 'SELECT') ? 'change' : 'input';
-            input.addEventListener(eventType, drawTextOnCanvas);
+            input.addEventListener(eventType, () => {
+                drawTextOnCanvas();
+                updateStatus("Preview updated due to input change.");
+            });
+        } else {
+            // console.warn(`An input element for preview update was not found.`); // Optional: log if an expected input is missing
         }
     });
-    if(fontFamilyInput) fontFamilyInput.addEventListener('change', drawTextOnCanvas);
+    // fontFamilyInput was previously added twice, this loop covers it if it's a SELECT. If it needs 'input' and 'change', specific handling might be needed.
 
     if (clearBgColorBtn) {
         clearBgColorBtn.addEventListener('click', () => {
-            if (bgColorInput) bgColorInput.value = "#000000";
-            if (enableBgColorCheckbox) enableBgColorCheckbox.checked = false;
+            if (bgColorInput) {
+                bgColorInput.value = "#000000"; // Default to black
+            } else {
+                console.warn("Background color input (bgColorInput) not found for clearing.");
+            }
+            if (enableBgColorCheckbox) {
+                enableBgColorCheckbox.checked = false;
+            } else {
+                console.warn("Enable background color checkbox (enableBgColorCheckbox) not found for clearing.");
+            }
             updateStatus("Text background color disabled.");
             drawTextOnCanvas();
         });
+    } else {
+        console.warn("Element with ID 'clearBgColorBtn' not found. Clearing background color will not work.");
     }
 
     if (generateBtn) {
         generateBtn.addEventListener('click', () => {
             console.log("[Diag] Generate button clicked.");
-            if (!loadedImage) { updateStatus("Error: Please upload an image first."); return; }
+            if (!loadedImage) {
+                updateStatus("Error: Please upload an image first.");
+                alert("Error: Please upload an image first.");
+                return;
+            }
+            if (!durationInput || !fpsInput) {
+                updateStatus("Error: Duration or FPS input elements are missing. Cannot generate video.");
+                console.error("Duration or FPS input elements are missing.");
+                alert("Error: Duration or FPS input elements are missing. Cannot generate video.");
+                return;
+            }
             const duration = parseFloat(durationInput.value);
             const fps = parseInt(fpsInput.value, 10);
-            if (isNaN(duration) || duration <= 0) { updateStatus("Error: Please enter a valid positive duration."); return; }
-            if (isNaN(fps) || fps <= 0) { updateStatus("Error: Please enter a valid positive FPS."); return; }
+            if (isNaN(duration) || duration <= 0) {
+                updateStatus("Error: Please enter a valid positive duration.");
+                alert("Error: Please enter a valid positive duration.");
+                return;
+            }
+            if (isNaN(fps) || fps <= 0) {
+                updateStatus("Error: Please enter a valid positive FPS.");
+                alert("Error: Please enter a valid positive FPS.");
+                return;
+            }
             console.log("[Diag] Calling generateVideoWithMediaRecorder()...");
             generateVideoWithMediaRecorder();
             console.log("[Diag] Returned from generateVideoWithMediaRecorder() call site.");
         });
+    } else {
+        console.error("Element with ID 'generateBtn' not found. Video generation will not work.");
     }
 
     async function generateVideoWithWhammy_DEPRECATED() {
         console.log("[Diag][generateVideoWhammy] Entered function.");
-        if (!loadedImage) { updateStatus("Error: Please upload an image first."); alert("Please upload an image first."); return; }
+        if (!loadedImage) {
+            updateStatus("Error: Please upload an image first.");
+            alert("Please upload an image first.");
+            return;
+        }
+        if (!durationInput || !fpsInput || !previewCanvas || !downloadLink || !generateBtn) {
+            updateStatus("Error: Critical elements for Whammy video generation are missing from the page.");
+            console.error("Critical elements for Whammy generation (durationInput, fpsInput, previewCanvas, downloadLink, generateBtn) are missing.");
+            if (generateBtn) generateBtn.disabled = false; // Re-enable if it exists
+            return;
+        }
+        // ctx is implicitly required by drawTextOnCanvas, which checks for it.
+
         const durationSec = parseFloat(durationInput.value);
         const fpsVal = parseInt(fpsInput.value, 10);
-        const qualityVal = 0.8;
+        const qualityVal = 0.8; // Whammy specific
+
         if (isNaN(durationSec) || durationSec <= 0) { updateStatus("Error: Invalid duration."); alert("Error: Invalid duration."); return; }
         if (isNaN(fpsVal) || fpsVal <= 0) { updateStatus("Error: Invalid FPS."); alert("Error: Invalid FPS."); return; }
-        updateStatus("Starting video generation with Whammy... This may take some time.");
-        generateBtn.disabled = true; downloadLink.style.display = 'none';
+
+        updateStatus("Starting video generation with Whammy (Deprecated)... This may take some time.");
+        generateBtn.disabled = true;
+        downloadLink.style.display = 'none';
+
         try {
             const totalFrames = Math.floor(durationSec * fpsVal);
-            const numOriginalFrames = originalFramesInput ? (parseInt(originalFramesInput.value, 10) || 0) : 0;
+            const numOriginalFramesVal = originalFramesInput ? (parseInt(originalFramesInput.value, 10) || 0) : 0;
             const video = new Whammy.Video(fpsVal, qualityVal);
-            const currentlySelectedFilter = imageFilterInput.value;
+            const currentFilter = imageFilterInput ? imageFilterInput.value : 'none'; // Default to 'none' if input missing
+
             for (let i = 0; i < totalFrames; i++) {
-                if (i % 10 === 0) { updateStatus(`Encoding frame ${i + 1}/${totalFrames}...`); await new Promise(resolve => setTimeout(resolve, 0)); }
-                let filterForThisFrame = currentlySelectedFilter;
-                if (i < numOriginalFrames) filterForThisFrame = 'none';
-                drawTextOnCanvas(filterForThisFrame);
-                video.add(previewCanvas);
+                if (i % 10 === 0) {
+                    updateStatus(`Encoding frame ${i + 1}/${totalFrames} (Whammy)...`);
+                    await new Promise(resolve => setTimeout(resolve, 0)); // Yield to event loop
+                }
+                let filterForThisFrame = currentFilter;
+                if (i < numOriginalFramesVal) {
+                    filterForThisFrame = 'none'; // Apply no filter to initial frames if specified
+                }
+                drawTextOnCanvas(filterForThisFrame); // drawTextOnCanvas now handles its own missing elements and defaults
+                video.add(previewCanvas); // Assumes previewCanvas is drawn correctly by drawTextOnCanvas
             }
-            drawTextOnCanvas();
+            drawTextOnCanvas(); // Reset preview to UI settings after loop
+
             updateStatus("Compiling WebM video (Whammy)...");
             const videoBlob = await video.compile();
             const videoUrl = URL.createObjectURL(videoBlob);
-            downloadLink.href = videoUrl; downloadLink.download = `video_output_whammy_${Date.now()}.webm`;
-            downloadLink.style.display = 'block'; downloadLink.textContent = 'Download Video (WebM - Whammy)';
+            downloadLink.href = videoUrl;
+            downloadLink.download = `video_output_whammy_${Date.now()}.webm`;
+            downloadLink.style.display = 'block';
+            downloadLink.textContent = 'Download Video (WebM - Whammy)';
             updateStatus("Whammy video ready for download!");
         } catch (error) {
             console.error("[Diag][generateVideoWhammy] Error:", error);
             updateStatus(`Error (Whammy): ${error.message || String(error)}.`);
         } finally {
             console.log("[Diag][generateVideoWhammy] Entering finally block. Re-enabling generate button.");
-            generateBtn.disabled = false;
+            if (generateBtn) generateBtn.disabled = false;
         }
     }
 
+
     async function generateVideoWithMediaRecorder() {
-        console.log("[Diag][MediaRecorder] Entered generateVideoWithMediaRecorder function (PR #27 STRICT REVERT with more logs).");
+        console.log("[Diag][MediaRecorder] Entered generateVideoWithMediaRecorder function.");
 
         if (!loadedImage) {
             updateStatus("Error: Please upload an image first.");
             alert("Please upload an image first.");
             return;
+        }
+        if (!durationInput || !fpsInput || !previewCanvas || !downloadLink || !generateBtn) {
+            updateStatus("Error: Critical elements for MediaRecorder video generation are missing from the page.");
+            console.error("Critical elements for MediaRecorder (durationInput, fpsInput, previewCanvas, downloadLink, generateBtn) are missing.");
+            if (generateBtn) generateBtn.disabled = false; // Re-enable if it exists
+            return;
+        }
+        if (!ctx) { // ctx is derived from previewCanvas, but check explicitly as it's vital for drawing
+             updateStatus("Error: Canvas context (ctx) is not available for MediaRecorder. Cannot draw frames.");
+             console.error("Canvas context (ctx) is not available for MediaRecorder.");
+             if (generateBtn) generateBtn.disabled = false;
+             return;
         }
 
         const durationSec = parseFloat(durationInput.value);
@@ -432,71 +577,79 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isNaN(durationSec) || durationSec <= 0) { updateStatus("Error: Invalid duration."); alert("Error: Invalid duration."); return; }
         if (isNaN(fpsVal) || fpsVal <= 0) { updateStatus("Error: Invalid FPS."); alert("Error: Invalid FPS."); return; }
 
-        if (!previewCanvas.captureStream) { updateStatus("Error: Browser does not support canvas.captureStream()."); alert("Error: Browser does not support canvas.captureStream()."); return; }
-        if (!window.MediaRecorder) { updateStatus("Error: Browser does not support MediaRecorder API."); alert("Error: Browser does not support MediaRecorder API."); return; }
+        if (!previewCanvas.captureStream) {
+            updateStatus("Error: Browser does not support canvas.captureStream(). Try a different browser like Chrome or Firefox.");
+            alert("Error: Browser does not support canvas.captureStream().");
+            if (generateBtn) generateBtn.disabled = false;
+            return;
+        }
+        if (!window.MediaRecorder) {
+            updateStatus("Error: Browser does not support MediaRecorder API. Try a different browser like Chrome or Firefox.");
+            alert("Error: Browser does not support MediaRecorder API.");
+            if (generateBtn) generateBtn.disabled = false;
+            return;
+        }
 
-        const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp8', 'video/webm'];
-        const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+        const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+        const supportedMimeType = mimeTypes.find(type => {
+            try { return MediaRecorder.isTypeSupported(type); } catch (e) { return false; }
+        });
 
-        if (!supportedMimeType) { updateStatus("Error: No supported WebM MIME type found."); alert("Error: No supported WebM MIME type found."); return; }
+        if (!supportedMimeType) {
+            updateStatus("Error: No supported MIME type found for MediaRecorder (tried WebM and MP4).");
+            alert("Error: No supported MIME type found for MediaRecorder. Your browser may not support common video recording formats.");
+            if (generateBtn) generateBtn.disabled = false;
+            return;
+        }
 
         console.log(`[Diag][MediaRecorder] Using MIME type: ${supportedMimeType}`);
         updateStatus("Starting video generation with MediaRecorder... This may take some time.");
-        generateBtn.disabled = true;
-        downloadLink.style.display = 'none';
+        if (generateBtn) generateBtn.disabled = true; // generateBtn definitely exists due to checks above
+        if (downloadLink) downloadLink.style.display = 'none'; // downloadLink definitely exists
 
         const recordedChunks = [];
         let mediaRecorder;
-        let renderLoopId;
+        let renderLoopId; // Stores the requestAnimationFrame ID
 
         try {
             let audioTrack = null;
             if (loadedAudioArrayBuffer) {
-                console.log("[Diag][MediaRecorder] Audio data found, attempting to decode and add to stream.");
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                let decodedAudioBuffer;
-                try {
-                    decodedAudioBuffer = await audioContext.decodeAudioData(loadedAudioArrayBuffer.slice(0)); // Use slice(0) to create a copy
-                } catch (audioDecodeError) {
-                    console.error("[Diag][MediaRecorder] Error decoding audio data:", audioDecodeError);
-                    updateStatus(`Error decoding audio: ${audioDecodeError.message}. Video will be generated without audio.`);
-                    // loadedAudioArrayBuffer = null; // Clear corrupted/unusable buffer. Keep if user might retry with fixed file? For now, let's clear.
-                    audioTrack = null;
-                }
-
-                if (decodedAudioBuffer) {
-                    const audioSourceNode = audioContext.createBufferSource();
-                    audioSourceNode.buffer = decodedAudioBuffer;
-
-                    if (decodedAudioBuffer.duration < durationSec) {
-                        audioSourceNode.loop = true;
-                        console.log(`[Diag][MediaRecorder] Audio duration (${decodedAudioBuffer.duration}s) is shorter than video duration (${durationSec}s). Looping audio.`);
-                    } else {
-                        audioSourceNode.loop = false;
-                        console.log(`[Diag][MediaRecorder] Audio duration (${decodedAudioBuffer.duration}s) is sufficient for video duration (${durationSec}s). Not looping audio.`);
-                    }
-
-                    const mediaStreamAudioDestinationNode = audioContext.createMediaStreamDestination();
-                    audioSourceNode.connect(mediaStreamAudioDestinationNode);
-                    audioSourceNode.start(0);
-
-                    if (mediaStreamAudioDestinationNode.stream.getAudioTracks().length > 0) {
-                        audioTrack = mediaStreamAudioDestinationNode.stream.getAudioTracks()[0];
-                        console.log("[Diag][MediaRecorder] Audio track created successfully:", audioTrack);
-                    } else {
-                        console.warn("[Diag][MediaRecorder] Could not get audio track from mediaStreamAudioDestinationNode.");
-                        updateStatus("Warning: Could not process audio track. Video will be silent.");
-                        // Ensure audioTrack is null if it couldn't be obtained
-                        audioTrack = null;
-                    }
+                console.log("[Diag][MediaRecorder] Audio data found, attempting to decode.");
+                if (!window.AudioContext && !window.webkitAudioContext) {
+                    updateStatus("Warning: Web Audio API not supported by this browser. Proceeding without audio.");
+                    console.warn("Web Audio API not supported.");
                 } else {
-                    // This block will be hit if decodeAudioData failed and set decodedAudioBuffer to undefined
-                    console.log("[Diag][MediaRecorder] Audio decoding failed or no audio buffer. Proceeding with video-only recording.");
-                    audioTrack = null; // Ensure audioTrack is null
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    try {
+                        const decodedAudioBuffer = await audioContext.decodeAudioData(loadedAudioArrayBuffer.slice(0));
+                        const audioSourceNode = audioContext.createBufferSource();
+                        audioSourceNode.buffer = decodedAudioBuffer;
+
+                        if (decodedAudioBuffer.duration < durationSec) {
+                            audioSourceNode.loop = true;
+                            console.log(`[Diag][MediaRecorder] Audio duration (${decodedAudioBuffer.duration}s) is shorter than video (${durationSec}s). Looping audio.`);
+                        } else {
+                             audioSourceNode.loop = false;
+                        }
+
+                        const mediaStreamAudioDestinationNode = audioContext.createMediaStreamDestination();
+                        audioSourceNode.connect(mediaStreamAudioDestinationNode);
+                        audioSourceNode.start(0);
+
+                        if (mediaStreamAudioDestinationNode.stream.getAudioTracks().length > 0) {
+                            audioTrack = mediaStreamAudioDestinationNode.stream.getAudioTracks()[0];
+                            console.log("[Diag][MediaRecorder] Audio track created successfully:", audioTrack);
+                        } else {
+                            console.warn("[Diag][MediaRecorder] Could not get audio track from mediaStreamAudioDestinationNode.");
+                            updateStatus("Warning: Could not process audio track. Video will be silent.");
+                        }
+                    } catch (audioDecodeError) {
+                        console.error("[Diag][MediaRecorder] Error decoding audio data:", audioDecodeError);
+                        updateStatus(`Error decoding audio: ${audioDecodeError.message}. Video will be generated without audio.`);
+                    }
                 }
             } else {
                 console.log("[Diag][MediaRecorder] No audio data loaded, proceeding with video-only recording.");
-                audioTrack = null; // Ensure audioTrack is null
             }
 
             console.log(`[Diag][MediaRecorder] Attempting to capture video stream with ${fpsVal} FPS.`);
@@ -505,146 +658,143 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (videoStream && videoStream.getVideoTracks().length > 0) {
                 const videoTrack = videoStream.getVideoTracks()[0];
-                console.log(`[Diag][MediaRecorder] Video Track 0: ID: ${videoTrack.id}, Kind: ${videoTrack.kind}, Label: "${videoTrack.label}", ReadyState: ${videoTrack.readyState}, Muted: ${videoTrack.muted}, Enabled: ${videoTrack.enabled}`);
                 if (audioTrack) {
                     finalStream = new MediaStream([videoTrack, audioTrack]);
-                    console.log("[Diag][MediaRecorder] Combined video and audio tracks into a new MediaStream.");
+                    console.log("[Diag][MediaRecorder] Combined video and audio tracks.");
                 } else {
                     finalStream = videoStream;
                     console.log("[Diag][MediaRecorder] Using video-only stream.");
                 }
             } else {
-                console.error("[Diag][MediaRecorder] previewCanvas.captureStream() returned null, undefined, or a stream with no video tracks.");
-                throw new Error("Failed to capture video stream from canvas.");
+                console.error("[Diag][MediaRecorder] previewCanvas.captureStream() failed or returned no video tracks.");
+                throw new Error("Failed to capture video stream from canvas. Ensure canvas is visible and valid.");
             }
 
             const options = { mimeType: supportedMimeType, videoBitsPerSecond: 2500000 };
-            if (audioTrack) {
-                // options.audioBitsPerSecond = 128000; // Example: set audio bitrate if desired
-                console.log("[Diag][MediaRecorder] Audio track present, MediaRecorder will attempt to record audio.");
-            }
             console.log("[Diag][MediaRecorder] MediaRecorder options:", options);
 
-            console.log("[Diag][MediaRecorder] Instantiating MediaRecorder...");
-            mediaRecorder = new MediaRecorder(finalStream, options);
-            console.log(`[Diag][MediaRecorder] MediaRecorder instantiated. Initial state: ${mediaRecorder.state}`);
+            try {
+                mediaRecorder = new MediaRecorder(finalStream, options);
+            } catch (recorderError) {
+                console.error("[Diag][MediaRecorder] Error instantiating MediaRecorder:", recorderError);
+                updateStatus(`Error creating MediaRecorder: ${recorderError.name} - ${recorderError.message}. Try a different browser or check supported codecs.`);
+                throw recorderError;
+            }
 
             mediaRecorder.ondataavailable = (event) => {
-                console.log(`[Diag][MediaRecorder] ondataavailable event. Type: ${event.type}, TimeStamp: ${event.timeStamp}, Chunk size: ${event.data.size}`);
-                if (event.data.size > 0) {
+                if (event.data && event.data.size > 0) {
                     recordedChunks.push(event.data);
-                    console.log(`[Diag][MediaRecorder] Pushed chunk. Total chunks: ${recordedChunks.length}. Approx total size: ${recordedChunks.reduce((acc, chunk) => acc + chunk.size, 0)} bytes.`);
-                } else {
-                    console.log("[Diag][MediaRecorder] ondataavailable: chunk size 0 (ignoring).");
                 }
             };
-            console.log("[Diag][MediaRecorder] ondataavailable handler attached.");
 
-            mediaRecorder.onstop = (event) => { // Added event parameter
-                console.log(`[Diag][MediaRecorder] onstop event. Type: ${event.type}, TimeStamp: ${event.timeStamp}. Current MediaRecorder state: ${mediaRecorder.state}`);
-                if (renderLoopId) {
-                    cancelAnimationFrame(renderLoopId);
-                    renderLoopId = null;
-                    console.log("[Diag][MediaRecorder] Cleared renderLoopId from onstop.");
-                }
+            mediaRecorder.onstop = () => {
+                console.log(`[Diag][MediaRecorder] onstop. Chunks: ${recordedChunks.length}`);
+                if (renderLoopId) { cancelAnimationFrame(renderLoopId); renderLoopId = null; }
 
-                console.log(`[Diag][MediaRecorder] onstop: ${recordedChunks.length} chunks recorded. Total size: ${recordedChunks.reduce((acc, chunk) => acc + chunk.size, 0)} bytes.`);
                 if (recordedChunks.length === 0) {
-                    console.error("[Diag][MediaRecorder] No data chunks recorded. Video will be empty.");
-                    updateStatus("Error: No video data was recorded. Output might be empty or invalid.");
+                    console.error("[Diag][MediaRecorder] No data chunks recorded.");
+                    updateStatus("Error: No video data recorded. Output might be empty.");
                 } else {
                     const videoBlob = new Blob(recordedChunks, { type: supportedMimeType });
-                    console.log(`[Diag][MediaRecorder] Video Blob created. Size: ${videoBlob.size}, Type: ${videoBlob.type}`);
-                    if (videoBlob.size === 0) updateStatus("Warning: Generated video file is empty (0 bytes).");
                     const videoUrl = URL.createObjectURL(videoBlob);
-                    downloadLink.href = videoUrl;
-                    downloadLink.download = `video_output_mr_${Date.now()}.webm`;
-                    downloadLink.style.display = 'block';
-                    downloadLink.textContent = 'Download Video (WebM - MediaRecorder)';
+                    if (downloadLink) {
+                        downloadLink.href = videoUrl;
+                        const fileExtension = supportedMimeType.includes('mp4') ? 'mp4' : (supportedMimeType.includes('webm') ? 'webm' : 'video');
+                        downloadLink.download = `video_output_mr_${Date.now()}.${fileExtension}`;
+                        downloadLink.style.display = 'block';
+                        downloadLink.textContent = `Download Video (${fileExtension.toUpperCase()} - MediaRecorder)`;
+                    } else {
+                        console.error("Download link element not found after recording, though it was expected.");
+                        updateStatus("Video ready, but download link element is missing.");
+                    }
                     updateStatus("MediaRecorder video ready for download!");
                 }
+                // No need to check generateBtn here, finally block handles it.
             };
-            console.log("[Diag][MediaRecorder] onstop handler attached.");
 
             mediaRecorder.onerror = (event) => {
-                console.error("[Diag][MediaRecorder] onerror event. Error object:", event.error || event);
-                updateStatus(`MediaRecorder error: ${ (event.error && event.error.name) || 'Unknown error' } - ${ (event.error && event.error.message) || 'Details in console'}`);
-                if (renderLoopId) {
-                    cancelAnimationFrame(renderLoopId);
-                    renderLoopId = null;
-                    console.log("[Diag][MediaRecorder] Cleared renderLoopId from onerror.");
-                }
+                console.error("[Diag][MediaRecorder] onerror:", event.error || event);
+                const errorDetails = event.error ? `${event.error.name}: ${event.error.message}` : 'Unknown MediaRecorder error';
+                updateStatus(`MediaRecorder error: ${errorDetails}. Check console.`);
+                if (renderLoopId) { cancelAnimationFrame(renderLoopId); renderLoopId = null; }
+                // No need to check generateBtn here, finally block handles it.
             };
-            console.log("[Diag][MediaRecorder] onerror handler attached.");
 
             let currentFrame = 0;
             const totalFrames = Math.floor(durationSec * fpsVal);
+            const useSequence = effectSequence && effectSequence.length > 0;
 
             function getFilterForFrameFromSequence(frameIndex, sequence) {
-                if (!sequence || sequence.length === 0) return 'none';
+                if (!useSequence) {
+                    return imageFilterInput ? imageFilterInput.value : 'none';
+                }
                 let cumulativeFrames = 0;
                 for (const effect of sequence) {
-                    if (frameIndex >= cumulativeFrames && frameIndex < cumulativeFrames + effect.frames) return effect.type;
+                    if (frameIndex >= cumulativeFrames && frameIndex < cumulativeFrames + effect.frames) {
+                        return effect.type;
+                    }
                     cumulativeFrames += effect.frames;
                 }
-                return 'none';
+                return sequence.length > 0 ? sequence[sequence.length -1].type : 'none';
             }
-            console.log(`[Diag][MediaRecorder] Effect sequence for video generation:`, JSON.parse(JSON.stringify(effectSequence)));
 
-            function renderFrame() {
+            if (useSequence) {
+                 console.log(`[Diag][MediaRecorder] Using effect sequence for video generation:`, JSON.parse(JSON.stringify(effectSequence)));
+            } else if (imageFilterInput) {
+                 console.log(`[Diag][MediaRecorder] Using UI selected filter for video generation: ${imageFilterInput.value}`);
+            }
+
+            function renderFrame() { // Changed from renderNextFrame to renderFrame to match original
                 if (currentFrame < totalFrames) {
-                    const filterForThisFrame = getFilterForFrameFromSequence(currentFrame, effectSequence);
-                    drawTextOnCanvas(filterForThisFrame);
-                    if (currentFrame % fpsVal === 0) { // Log status once per second (approx)
-                        updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterForThisFrame}). Recorder state: ${mediaRecorder.state}`);
-                        console.log(`[Diag][MediaRecorder] Render loop: Frame ${currentFrame + 1}/${totalFrames}. Filter: ${filterForThisFrame}. Recorder state: ${mediaRecorder.state}`);
-                        // Removed explicit mediaRecorder.requestData(); call
-                        // The timeslice parameter in mediaRecorder.start() should handle dataavailable events.
+                    const filterType = getFilterForFrameFromSequence(currentFrame, effectSequence);
+                    drawTextOnCanvas(filterType);
+
+                    if (currentFrame % Math.max(1, fpsVal) === 0) {
+                         if (mediaRecorder && mediaRecorder.state) {
+                            updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterType}). Recorder: ${mediaRecorder.state}`);
+                         } else {
+                            updateStatus(`Rendering frame ${currentFrame + 1}/${totalFrames} (Filter: ${filterType}). Recorder: N/A`);
+                         }
                     }
                     currentFrame++;
-                    renderLoopId = requestAnimationFrame(renderFrame);
+                    renderLoopId = requestAnimationFrame(renderFrame); // Corrected to renderFrame
                 } else {
-                    console.log("[Diag][MediaRecorder] All frames drawn to canvas according to calculation. Stopping renderLoop.");
-                    if (renderLoopId) {
-                        cancelAnimationFrame(renderLoopId);
-                        renderLoopId = null;
+                    if (mediaRecorder && mediaRecorder.state === "recording") {
+                        mediaRecorder.stop();
+                        console.log("[Diag][MediaRecorder] All frames rendered, stopping MediaRecorder.");
                     }
+                    if (renderLoopId) { cancelAnimationFrame(renderLoopId); renderLoopId = null; }
                 }
             }
 
-            console.log(`[Diag][MediaRecorder] About to call mediaRecorder.start(100). Current state: ${mediaRecorder.state}`);
-            mediaRecorder.start(100); // Using timeslice
-            console.log(`[Diag][MediaRecorder] MediaRecorder.start(100) called. Current state: ${mediaRecorder.state}`);
+            mediaRecorder.start(100);
+            console.log(`[Diag][MediaRecorder] MediaRecorder started. State: ${mediaRecorder.state}`);
             updateStatus("Recording in progress...");
 
-            currentFrame = 0;
-            renderLoopId = requestAnimationFrame(renderFrame);
+            renderLoopId = requestAnimationFrame(renderFrame); // Corrected to renderFrame
 
             setTimeout(() => {
-                console.log(`[Diag][MediaRecorder] setTimeout for stop fired. Current mediaRecorder state: ${mediaRecorder.state}`);
-                if (mediaRecorder && (mediaRecorder.state === "recording" || mediaRecorder.state === "paused")) {
+                if (mediaRecorder && mediaRecorder.state === "recording") {
+                    console.log("[Diag][MediaRecorder] Timeout reached, ensuring MediaRecorder is stopped.");
                     mediaRecorder.stop();
-                    console.log("[Diag][MediaRecorder] Sent stop() command after duration.");
-                } else {
-                    console.warn(`[Diag][MediaRecorder] setTimeout: MediaRecorder not in 'recording' or 'paused' state (was ${mediaRecorder ? mediaRecorder.state : 'null'}), not calling stop().`);
                 }
                 if (renderLoopId) {
                     cancelAnimationFrame(renderLoopId);
                     renderLoopId = null;
-                    console.log("[Diag][MediaRecorder] Cleared rAF from timeout, just in case.");
+                    console.log("[Diag][MediaRecorder] rAF cancelled by fallback timeout.");
                 }
-            }, durationSec * 1000);
+            }, (durationSec * 1000) + 500);
 
         } catch (error) {
-            console.error("[Diag][MediaRecorder] Error during MediaRecorder video generation:", error);
-            updateStatus(`Error: ${error.message || error}`);
-            if (renderLoopId) {
-                cancelAnimationFrame(renderLoopId);
-                renderLoopId = null;
+            console.error("[Diag][MediaRecorder] Error during MediaRecorder setup or operation:", error);
+            updateStatus(`MediaRecorder Error: ${error.message || String(error)}`);
+            if (renderLoopId) { cancelAnimationFrame(renderLoopId); renderLoopId = null; }
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                 try { mediaRecorder.stop(); } catch (e) { console.error("Error stopping media recorder during catch:", e); }
             }
         } finally {
-            console.log("[Diag][MediaRecorder] Entering finally block. Re-enabling generate button.");
-            generateBtn.disabled = false;
+            console.log("[Diag][MediaRecorder] Entering finally block.");
+             if (generateBtn) generateBtn.disabled = false;
         }
     }
 });
