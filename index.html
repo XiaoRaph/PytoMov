@@ -172,6 +172,18 @@
         <div class="status-messages" id="videoToImageStatusMessages">
             <p class="status-messages__message">Status: Idle</p>
         </div>
+
+        <div class="video-info-area" id="videoInfoArea" style="display: none;">
+            <h4 class="video-info-area__title">Video Information</h4>
+            <ul class="video-info-area__list">
+                <li><strong>File Name:</strong> <span id="videoInfoFileName">-</span></li>
+                <li><strong>File Type:</strong> <span id="videoInfoFileType">-</span></li>
+                <li><strong>File Size:</strong> <span id="videoInfoFileSize">-</span></li>
+                <li><strong>Video Duration:</strong> <span id="videoInfoDuration">-</span></li>
+                <li><strong>Video Dimensions:</strong> <span id="videoInfoDimensions">-</span></li>
+            </ul>
+        </div>
+
         <div class="preview-area" id="framePreviewArea" style="display: none;">
             <h3 class="preview-area__title">Extracted Frame</h3>
             <img class="preview-area__canvas" id="extractedFrameImage" alt="Extracted Frame">
