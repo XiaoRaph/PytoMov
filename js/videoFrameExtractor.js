@@ -1,7 +1,61 @@
-import { handleError } from './utils.js'; // Import handleError
+import { handleError } from './utils.js';
 
-// Placeholder for video frame extraction logic
-console.log("videoFrameExtractor.js loaded");
+const { FFmpeg } = FFmpegWASM; // Assuming FFmpeg is loaded globally via CDN script
+let ffmpeg;
+let ffmpegLoaded = false;
+let isProcessing = false;
+
+const CORE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js'; // Path to ffmpeg-core.js
+
+/**
+ * Initializes the FFmpeg instance and loads the core.
+ */
+async function initializeFFmpeg() {
+    const statusMessagesEl = document.querySelector('#videoToImageStatusMessages .status-messages__message');
+    if (ffmpegLoaded) {
+        console.log("[FFmpeg] Already loaded.");
+        if (statusMessagesEl) statusMessagesEl.textContent = "Status: FFmpeg ready.";
+        return true;
+    }
+    if (!ffmpeg) {
+        ffmpeg = new FFmpeg();
+    }
+
+    try {
+        if (statusMessagesEl) {
+            statusMessagesEl.textContent = "Status: Initializing FFmpeg (this may take a moment)...";
+            statusMessagesEl.parentElement.style.borderLeftColor = '#f39c12'; // Warning/loading color
+        }
+        console.log("[FFmpeg] Initializing FFmpeg...");
+
+        ffmpeg.on('log', ({ message }) => {
+            // console.log('[FFmpeg Log]', message); // Optional: for detailed FFmpeg logs
+        });
+
+        await ffmpeg.load({ coreURL: CORE_URL });
+        ffmpegLoaded = true;
+        console.log("[FFmpeg] FFmpeg core loaded successfully.");
+        if (statusMessagesEl) {
+            statusMessagesEl.textContent = "Status: FFmpeg ready.";
+            statusMessagesEl.parentElement.style.borderLeftColor = '#2ecc71'; // Success color
+        }
+        return true;
+    } catch (error) {
+        console.error("[FFmpeg] Error loading FFmpeg core:", error);
+        if (statusMessagesEl) {
+            statusMessagesEl.textContent = `Error: FFmpeg initialization failed. ${error.message}`;
+            statusMessagesEl.parentElement.style.borderLeftColor = '#e74c3c'; // Error color
+        }
+        ffmpegLoaded = false;
+        return false;
+    }
+}
+
+// Call initializeFFmpeg early, perhaps when the tab is shown or on first interaction.
+// For now, we can call it from handleVideoUpload or rely on the user clicking extract.
+
+console.log("videoFrameExtractor.js loaded, FFmpeg object available:", typeof FFmpeg !== 'undefined');
+
 
 /**
  * Handles the video file input and prepares for frame extraction.
@@ -50,24 +104,175 @@ export function handleVideoUpload(event, frameImageEl, downloadFrameLinkEl, fram
     }
 
     const reader = new FileReader();
-    reader.onload = function(e) {
-        const videoSrc = e.target.result;
-        extractLastFrame(videoSrc, frameImageEl, downloadFrameLinkEl, framePreviewAreaEl);
+    reader.onload = async function(e) { // Made async to await initializeFFmpeg
+        const videoSrc = e.target.result; // This is a data URL
+
+        if (!ffmpegLoaded) {
+            const loaded = await initializeFFmpeg();
+            if (!loaded) {
+                console.error("[FFmpeg] Cannot proceed with extraction, FFmpeg not loaded.");
+                // Status already set by initializeFFmpeg on failure
+                return;
+            }
+        }
+
+        // For this step, we just test loading FFmpeg and writing the file.
+        // The actual frame extraction will be in the next step.
+        if (isProcessing) {
+            console.warn("[FFmpeg] Already processing, please wait.");
+            // Update status?
+            return;
+        }
+        isProcessing = true;
+        const statusMessagesEl = document.querySelector('#videoToImageStatusMessages .status-messages__message');
+        if (statusMessagesEl) {
+            statusMessagesEl.textContent = "Status: Preparing video for FFmpeg...";
+            statusMessagesEl.parentElement.style.borderLeftColor = '#f39c12';
+        }
+
+        try {
+            console.log("[FFmpeg] Converting data URL to Uint8Array for FFmpeg...");
+            // Helper to convert data URL to Uint8Array - FFmpeg.FS.writeFile needs this or Blob/File
+            // For @ffmpeg/ffmpeg v0.12+, it provides `fetchFile` utility
+            // If using `ffmpeg.FS` directly, we might need to convert manually for data URLs.
+            // Let's assume `FFmpeg.fetchFile` can handle data URLs or we adapt.
+            // const data = await FFmpeg.fetchFile(videoSrc); // FFmpeg.fetchFile is part of @ffmpeg/util, ensure it's available or implement conversion
+
+            // Manual conversion for data URL to Uint8Array as fetchFile might not be directly on FFmpeg object
+            // and @ffmpeg/util is a separate package.
+            let data;
+            if (typeof FFmpegWASM.fetchFile === 'function') { // Check if fetchFile is available globally from FFmpeg loaded script
+                data = await FFmpegWASM.fetchFile(videoSrc);
+            } else {
+                // Basic manual conversion for "data:[<mediatype>][;base64],<data>"
+                const base64Response = await fetch(videoSrc);
+                const blob = await base64Response.blob();
+                data = new Uint8Array(await blob.arrayBuffer());
+            }
+
+            console.log(`[FFmpeg] Uint8Array created, size: ${data.byteLength}. Writing to FFmpeg FS as inputVideo...`);
+            await ffmpeg.writeFile('inputVideo', data);
+            console.log("[FFmpeg] File 'inputVideo' written to FFmpeg FS successfully.");
+            if (statusMessagesEl) {
+                statusMessagesEl.textContent = "Status: Video loaded into FFmpeg. Ready for extraction command (next step).";
+                statusMessagesEl.parentElement.style.borderLeftColor = '#2ecc71';
+            }
+
+            // In a real scenario, call the extraction command here.
+            // For now, this step is complete.
+            await extractFrameWithFFmpegCommand('inputVideo', frameImageEl, downloadFrameLinkEl, framePreviewAreaEl, videoInfoDuration.textContent);
+
+        } catch (error) {
+            console.error("[FFmpeg] Error in video processing workflow (write or extract):", error);
+            if (statusMessagesEl) {
+                statusMessagesEl.textContent = `Error: Failed to load video into FFmpeg. ${error.message}`;
+                statusMessagesEl.parentElement.style.borderLeftColor = '#e74c3c';
+            }
+        } finally {
+            isProcessing = false;
+        }
     };
     reader.readAsDataURL(file);
 }
 
 /**
- * Extracts the last frame from a video source.
- * @param {string} videoSrc - The source URL of the video.
+ * Extracts the last frame from a video source using FFmpeg.
+ * This function executes the FFmpeg command for frame extraction.
+ * @param {string} inputFilename - The name of the video file in FFmpeg's FS.
  * @param {HTMLImageElement} frameImageEl - The image element to display the extracted frame.
  * @param {HTMLButtonElement} downloadFrameLinkEl - The button to download the extracted frame.
  * @param {HTMLElement} framePreviewAreaEl - The container for the frame preview.
+ * @param {string} durationString - The string representation of video duration e.g., "5.00 seconds".
  */
-function extractLastFrame(videoSrc, frameImageEl, downloadFrameLinkEl, framePreviewAreaEl) {
+async function extractFrameWithFFmpegCommand(inputFilename, frameImageEl, downloadFrameLinkEl, framePreviewAreaEl, durationString) {
+    if (!ffmpegLoaded || !ffmpeg) {
+        console.error("[FFmpeg] FFmpeg not loaded. Cannot execute command.");
+        handleError("FFmpeg is not ready. Please try uploading the video again.", false);
+        return;
+    }
+    if (isProcessing) { // Check isProcessing again, though outer function should also check
+        console.warn("[FFmpeg] Still processing another request.");
+        return;
+    }
+    isProcessing = true;
+
+    const statusMessagesEl = document.querySelector('#videoToImageStatusMessages .status-messages__message');
+    const outputFilename = 'output.png';
+    let seekTime = 0.1; // Default seek time for very short videos or if duration parsing fails
+
+    try {
+        // Attempt to parse duration to seek near the end.
+        // durationString is like "5.00 seconds" or "N/A" or "Error loading"
+        if (durationString && durationString.includes("seconds")) {
+            const duration = parseFloat(durationString);
+            if (!isNaN(duration) && duration > 0.2) {
+                seekTime = Math.max(0.1, duration - 0.1).toFixed(3); // Seek to 0.1s before end, but not less than 0.1s
+            }
+        }
+        console.log(`[FFmpeg] Determined seekTime: ${seekTime} seconds.`);
+
+        if (statusMessagesEl) {
+            statusMessagesEl.textContent = `Status: Extracting frame with FFmpeg (seek time: ${seekTime}s)...`;
+            statusMessagesEl.parentElement.style.borderLeftColor = '#f39c12';
+        }
+        console.log(`[FFmpeg] Executing command: -i ${inputFilename} -ss ${seekTime} -vframes 1 ${outputFilename}`);
+
+        await ffmpeg.exec(['-i', inputFilename, '-ss', String(seekTime), '-vframes', '1', outputFilename]);
+
+        console.log("[FFmpeg] Command executed. Reading output file:", outputFilename);
+        const data = await ffmpeg.readFile(outputFilename);
+
+        console.log("[FFmpeg] Frame data read from FS. Converting to displayable image.");
+        const blob = new Blob([data.buffer], { type: 'image/png' });
+        const dataUrl = URL.createObjectURL(blob);
+
+        frameImageEl.src = dataUrl;
+        framePreviewAreaEl.style.display = 'block';
+        downloadFrameLinkEl.href = dataUrl;
+        downloadFrameLinkEl.style.display = 'block';
+
+        if (statusMessagesEl) {
+            statusMessagesEl.textContent = "Status: Frame extracted successfully with FFmpeg!";
+            statusMessagesEl.parentElement.style.borderLeftColor = '#2ecc71';
+        }
+        console.log("[FFmpeg] Frame displayed and download link updated.");
+
+        // Optional: Clean up files from FFmpeg FS
+        // await ffmpeg.deleteFile(inputFilename);
+        // await ffmpeg.deleteFile(outputFilename);
+        // console.log("[FFmpeg] Cleaned up input/output files from FS.");
+
+    } catch (error) {
+        console.error("[FFmpeg] Error during FFmpeg command execution or file handling:", error);
+        if (statusMessagesEl) {
+            statusMessagesEl.textContent = `Error: FFmpeg processing failed. ${error.message || error}`;
+            statusMessagesEl.parentElement.style.borderLeftColor = '#e74c3c';
+        }
+        // Ensure UI is reset for image part if error occurs after file write but during exec/read
+        framePreviewAreaEl.style.display = 'none';
+        frameImageEl.src = '';
+        downloadFrameLinkEl.style.display = 'none';
+        downloadFrameLinkEl.href = '#';
+    } finally {
+        isProcessing = false;
+        // Consider if FS cleanup is always needed or only on success.
+        // For simplicity, not auto-deleting now to allow inspection if needed, but in prod might be good.
+    }
+}
+
+
+// The old extractLastFrame is now effectively replaced by the logic in
+// handleVideoUpload (for file loading) and extractFrameWithFFmpegCommand (for exec).
+// We can remove the old placeholder `extractLastFrame` or repurpose it if we want a single entry point.
+// For clarity, let's assume handleVideoUpload calls extractFrameWithFFmpegCommand directly or indirectly.
+// The current structure has reader.onload calling extractFrameWithFFmpegCommand.
+
+// Old canvas-based extraction logic (commented out)
+/*
+function extractLastFrame_canvas(videoSrc, frameImageEl, downloadFrameLinkEl, framePreviewAreaEl) {
     const video = document.createElement('video');
     video.src = videoSrc;
-    video.muted = true; // Mute to avoid issues with autoplay policies
+    video.muted = true;
     video.preload = 'metadata'; // Hint to the browser to load metadata quickly
     const videoInfoDuration = document.getElementById('videoInfoDuration');
     const videoInfoDimensions = document.getElementById('videoInfoDimensions');

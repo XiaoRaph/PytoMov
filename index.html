@@ -162,6 +162,12 @@
     <script type="module" src="js/main.js"></script>
     </div>
 
+    <!-- FFmpeg.wasm script - consider placing it before main.js or ensuring main.js waits if FFmpeg is needed immediately -->
+    <!-- Using unpkg for @ffmpeg/ffmpeg and @ffmpeg/core -->
+    <!-- It's often better to host these yourself or use a more specific version -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+
+
     <div class="tab-content" id="videoToImage">
         <h1 class="app-container__main-title">Video to Image Extractor</h1>
         <div class="form-group">
