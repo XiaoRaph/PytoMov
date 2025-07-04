@@ -169,6 +169,9 @@
             <input class="form-group__input form-group__input--file" type="file" id="videoUpload" accept="video/*">
         </div>
         <button class="button button--primary button--full-width" id="extractFrameBtn">Extract Last Frame</button>
+        <div class="status-messages" id="videoToImageStatusMessages">
+            <p class="status-messages__message">Status: Idle</p>
+        </div>
         <div class="preview-area" id="framePreviewArea" style="display: none;">
             <h3 class="preview-area__title">Extracted Frame</h3>
             <img class="preview-area__canvas" id="extractedFrameImage" alt="Extracted Frame">
