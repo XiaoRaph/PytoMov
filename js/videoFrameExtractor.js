@@ -12,9 +12,41 @@ console.log("videoFrameExtractor.js loaded");
  */
 export function handleVideoUpload(event, frameImageEl, downloadFrameLinkEl, framePreviewAreaEl) {
     const file = event.target.files[0];
+    const videoInfoArea = document.getElementById('videoInfoArea');
+    const videoInfoFileName = document.getElementById('videoInfoFileName');
+    const videoInfoFileType = document.getElementById('videoInfoFileType');
+    const videoInfoFileSize = document.getElementById('videoInfoFileSize');
+    const videoInfoDuration = document.getElementById('videoInfoDuration');
+    const videoInfoDimensions = document.getElementById('videoInfoDimensions');
+
+    // Reset and hide video info area initially for a new upload
+    if (videoInfoArea) videoInfoArea.style.display = 'none';
+    if (videoInfoFileName) videoInfoFileName.textContent = '-';
+    if (videoInfoFileType) videoInfoFileType.textContent = '-';
+    if (videoInfoFileSize) videoInfoFileSize.textContent = '-';
+    if (videoInfoDuration) videoInfoDuration.textContent = '-';
+    if (videoInfoDimensions) videoInfoDimensions.textContent = '-';
+     // Also reset status message for new upload
+    const statusMessagesEl = document.querySelector('#videoToImageStatusMessages .status-messages__message');
+    if (statusMessagesEl) {
+        statusMessagesEl.textContent = "Status: Idle";
+        statusMessagesEl.parentElement.style.borderLeftColor = '#3498db'; // Default color
+    }
+
+
     if (!file) {
         console.log("No file selected");
+        // Optionally hide info area if no file is chosen after one was, though current flow handles this.
         return;
+    }
+
+    // Display file-level information
+    if (videoInfoArea) videoInfoArea.style.display = 'block';
+    if (videoInfoFileName) videoInfoFileName.textContent = file.name;
+    if (videoInfoFileType) videoInfoFileType.textContent = file.type || 'N/A';
+    if (videoInfoFileSize) {
+        const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+        videoInfoFileSize.textContent = `${sizeInMB} MB (${file.size} bytes)`;
     }
 
     const reader = new FileReader();
@@ -37,13 +69,32 @@ function extractLastFrame(videoSrc, frameImageEl, downloadFrameLinkEl, framePrev
     video.src = videoSrc;
     video.muted = true; // Mute to avoid issues with autoplay policies
     video.preload = 'metadata'; // Hint to the browser to load metadata quickly
+    const videoInfoDuration = document.getElementById('videoInfoDuration');
+    const videoInfoDimensions = document.getElementById('videoInfoDimensions');
 
     console.log("[FrameExtractor] Video element created, src set. Waiting for metadata...");
 
     video.onloadedmetadata = function() {
         console.log(`[FrameExtractor] Metadata loaded. Duration: ${video.duration}, Dimensions: ${video.videoWidth}x${video.videoHeight}`);
+
+        if (videoInfoDuration) {
+            try {
+                videoInfoDuration.textContent = video.duration && !isNaN(video.duration) && video.duration !== Infinity ? `${video.duration.toFixed(2)} seconds` : 'N/A';
+            } catch (e) {
+                videoInfoDuration.textContent = 'Error reading duration';
+                console.warn("[FrameExtractor] Error accessing video.duration", e);
+            }
+        }
+        if (videoInfoDimensions) {
+            if (video.videoWidth && video.videoHeight) {
+                videoInfoDimensions.textContent = `${video.videoWidth} x ${video.videoHeight} pixels`;
+            } else {
+                videoInfoDimensions.textContent = 'N/A';
+            }
+        }
+
         if (video.duration === Infinity || video.duration === 0 || isNaN(video.duration)) {
-            const warningMessage = "Video duration is invalid or streaming. Cannot reliably seek to the last frame.";
+            const warningMessage = "Video duration is invalid or streaming. Cannot reliably seek to the last frame. Attempting to capture an early frame.";
             console.warn(`[FrameExtractor] ${warningMessage}`);
             const statusMessagesEl = document.querySelector('#videoToImageStatusMessages .status-messages__message');
             if (statusMessagesEl) {
@@ -52,11 +103,8 @@ function extractLastFrame(videoSrc, frameImageEl, downloadFrameLinkEl, framePrev
             } else {
                 handleError(warningMessage, false);
             }
-            // Attempt to capture frame at a very early point if duration is problematic, e.g., 0.1s
-            video.currentTime = 0.1;
-            // Or, simply don't proceed if a valid duration isn't found, depending on desired behavior.
-            // For now, we'll try to capture an early frame.
-            // If this is not desired, clean up and return here.
+            video.currentTime = 0.1; // Attempt to capture an early frame
+            console.log(`[FrameExtractor] Seeking to 0.1s due to invalid duration.`);
         } else {
             video.currentTime = video.duration; // Seek to the end
             console.log(`[FrameExtractor] Seeking to end of video (currentTime set to ${video.duration})`);
@@ -180,6 +228,9 @@ function extractLastFrame(videoSrc, frameImageEl, downloadFrameLinkEl, framePrev
             downloadFrameLinkEl.style.display = 'none';
             downloadFrameLinkEl.href = '#'; // Reset href
         }
+        // Also update video metadata display on error to indicate missing data if appropriate
+        if (videoInfoDuration && videoInfoDuration.textContent === '-') videoInfoDuration.textContent = 'Error loading';
+        if (videoInfoDimensions && videoInfoDimensions.textContent === '-') videoInfoDimensions.textContent = 'Error loading';
     };
 
     console.log("[FrameExtractor] Attempting to load video metadata and seek...");
